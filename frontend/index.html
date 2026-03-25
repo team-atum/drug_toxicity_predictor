@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ATUM | Drug Toxicity Prediction</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+</head>
+<body>
+    <div class="custom-cursor" id="cursor"></div>
+    <div class="cursor-follower" id="cursorFollower"></div>
+
+    <nav class="navbar" id="navbar">
+        <div class="nav-container">
+            <a href="#hero" class="nav-logo">
+                <span class="logo-icon"><i class="fas fa-atom"></i></span>
+                <span class="logo-text">ATUM</span>
+            </a>
+            <ul class="nav-links">
+                <li><a href="#hero" class="nav-link active">Home</a></li>
+                <li><a href="#predict" class="nav-link">Predict</a></li>
+                <li><a href="#results" class="nav-link">Results</a></li>
+                <li><a href="#about" class="nav-link">About</a></li>
+            </ul>
+            <div class="nav-hamburger" id="hamburger">
+                <span></span><span></span><span></span>
+            </div>
+        </div>
+    </nav>
+
+    <section class="hero-section" id="hero">
+        <div class="hero-bg-particles" id="heroBgParticles"></div>
+        <div class="hero-content">
+            <div class="hero-text">
+                <div class="hero-badge">
+                    <span class="badge-dot"></span>
+                    <span>Powered by XGBoost & Tox21</span>
+                </div>
+                <h1 class="hero-title">
+                    <span class="title-line">Drug Toxicity</span>
+                    <span class="title-line accent">Prediction</span>
+                </h1>
+                <p class="hero-subtitle">
+                    Advanced machine learning pipeline analyzing molecular structures across
+                    <span class="highlight">12 Tox21 biological assays</span> to predict compound toxicity
+                    with high accuracy.
+                </p>
+                <div class="hero-stats">
+                    <div class="stat-item">
+                        <span class="stat-number" id="statAccuracy">--</span>
+                        <span class="stat-label">Model Accuracy</span>
+                    </div>
+                    <div class="stat-divider"></div>
+                    <div class="stat-item">
+                        <span class="stat-number">12</span>
+                        <span class="stat-label">Tox21 Assays</span>
+                    </div>
+                    <div class="stat-divider"></div>
+                    <div class="stat-item">
+                        <span class="stat-number">2055</span>
+                        <span class="stat-label">Features</span>
+                    </div>
+                </div>
+                <div class="hero-buttons">
+                    <a href="#predict" class="btn btn-primary">
+                        <i class="fas fa-flask"></i>
+                        Start Prediction
+                    </a>
+                    <a href="#about" class="btn btn-outline">
+                        <i class="fas fa-info-circle"></i>
+                        Learn More
+                    </a>
+                </div>
+            </div>
+            <div class="hero-3d">
+                <canvas id="moleculeCanvas"></canvas>
+                <div class="hero-3d-label">3D Molecular Visualization</div>
+            </div>
+        </div>
+        <div class="scroll-indicator" id="scrollIndicator">
+            <div class="scroll-mouse">
+                <div class="scroll-wheel"></div>
+            </div>
+            <span>Scroll to explore</span>
+        </div>
+    </section>
+
+    <section class="predict-section" id="predict">
+        <div class="section-container">
+            <div class="section-header">
+                <span class="section-tag"><i class="fas fa-microscope"></i> Analysis</span>
+                <h2 class="section-title">Predict Toxicity</h2>
+                <p class="section-desc">Enter a SMILES molecular notation to analyze toxicity across multiple biological endpoints</p>
+            </div>
+            <div class="predict-card">
+                <div class="input-group">
+                    <label for="smilesInput" class="input-label">
+                        <i class="fas fa-prescription-bottle-medical"></i>
+                        SMILES Notation
+                    </label>
+                    <div class="input-wrapper">
+                        <input type="text" id="smilesInput" class="smiles-input"
+                               placeholder="Enter SMILES string (e.g., CC(=O)Oc1ccccc1C(=O)O)"
+                               autocomplete="off" spellcheck="false">
+                        <button class="input-clear" id="clearInput" title="Clear">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="example-molecules">
+                    <span class="example-label">Try examples:</span>
+                    <div class="example-buttons">
+                        <button class="example-btn" data-smiles="CC(=O)Oc1ccccc1C(=O)O" data-name="Aspirin">
+                            <i class="fas fa-pills"></i>
+                            Aspirin
+                        </button>
+                        <button class="example-btn" data-smiles="Cn1c(=O)c2c(ncn2C)n(C)c1=O" data-name="Caffeine">
+                            <i class="fas fa-mug-hot"></i>
+                            Caffeine
+                        </button>
+                        <button class="example-btn" data-smiles="CC(=O)CC(c1ccccc1)c1c(O)c2ccccc2oc1=O" data-name="Warfarin">
+                            <i class="fas fa-capsules"></i>
+                            Warfarin
+                        </button>
+                    </div>
+                </div>
+                <button class="predict-btn" id="predictBtn">
+                    <span class="predict-btn-content">
+                        <i class="fas fa-bolt"></i>
+                        Analyze Toxicity
+                    </span>
+                    <span class="predict-btn-loading" style="display:none;">
+                        <i class="fas fa-spinner fa-spin"></i>
+                        Processing...
+                    </span>
+                </button>
+            </div>
+
+            <div class="loading-overlay" id="loadingOverlay" style="display:none;">
+                <div class="loading-card">
+                    <div class="loading-helix">
+                        <div class="helix-strand"></div>
+                        <div class="helix-strand"></div>
+                        <div class="helix-strand"></div>
+                    </div>
+                    <div class="loading-steps">
+                        <div class="loading-step" id="step1">
+                            <div class="step-icon"><i class="fas fa-code"></i></div>
+                            <span>Parsing SMILES...</span>
+                            <div class="step-check"><i class="fas fa-check"></i></div>
+                        </div>
+                        <div class="loading-step" id="step2">
+                            <div class="step-icon"><i class="fas fa-calculator"></i></div>
+                            <span>Computing descriptors...</span>
+                            <div class="step-check"><i class="fas fa-check"></i></div>
+                        </div>
+                        <div class="loading-step" id="step3">
+                            <div class="step-icon"><i class="fas fa-brain"></i></div>
+                            <span>Running ML model...</span>
+                            <div class="step-check"><i class="fas fa-check"></i></div>
+                        </div>
+                        <div class="loading-step" id="step4">
+                            <div class="step-icon"><i class="fas fa-file-medical-alt"></i></div>
+                            <span>Generating report...</span>
+                            <div class="step-check"><i class="fas fa-check"></i></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="error-message" id="errorMessage" style="display:none;">
+                <i class="fas fa-exclamation-triangle"></i>
+                <span id="errorText"></span>
+            </div>
+        </div>
+    </section>
+
+    <section class="results-section" id="results" style="display:none;">
+        <div class="section-container">
+            <div class="section-header">
+                <span class="section-tag"><i class="fas fa-chart-bar"></i> Results</span>
+                <h2 class="section-title">Analysis Report</h2>
+                <p class="section-desc">Comprehensive toxicity analysis for <span class="highlight" id="resultSmiles"></span></p>
+            </div>
+
+            <div class="verdict-row">
+                <div class="verdict-card" id="verdictCard">
+                    <div class="verdict-icon" id="verdictIcon">
+                        <i class="fas fa-shield-alt"></i>
+                    </div>
+                    <div class="verdict-info">
+                        <h3 class="verdict-label">Prediction</h3>
+                        <span class="verdict-text" id="verdictText">Safe</span>
+                    </div>
+                    <div class="verdict-confidence">
+                        <div class="confidence-circle" id="confidenceCircle">
+                            <svg viewBox="0 0 120 120">
+                                <circle cx="60" cy="60" r="54" class="confidence-bg"/>
+                                <circle cx="60" cy="60" r="54" class="confidence-fill" id="confidenceArc"/>
+                            </svg>
+                            <div class="confidence-value">
+                                <span id="confidenceValue">0</span>
+                                <small>%</small>
+                            </div>
+                        </div>
+                        <span class="confidence-label">Confidence</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="results-grid">
+                <div class="result-block assay-block">
+                    <div class="block-header">
+                        <h3><i class="fas fa-vials"></i> Tox21 Assay Results</h3>
+                        <span class="block-badge" id="assayBadge">0/12 Active</span>
+                    </div>
+                    <div class="assay-grid" id="assayGrid"></div>
+                </div>
+
+                <div class="result-block properties-block">
+                    <div class="block-header">
+                        <h3><i class="fas fa-atom"></i> Molecular Properties</h3>
+                    </div>
+                    <div class="properties-grid" id="propertiesGrid"></div>
+                </div>
+
+                <div class="result-block importance-block">
+                    <div class="block-header">
+                        <h3><i class="fas fa-sort-amount-down"></i> Feature Importance</h3>
+                    </div>
+                    <div class="importance-chart-container">
+                        <canvas id="importanceChart"></canvas>
+                    </div>
+                </div>
+
+                <div class="result-block assay-chart-block">
+                    <div class="block-header">
+                        <h3><i class="fas fa-chart-radar"></i> Assay Probability Overview</h3>
+                    </div>
+                    <div class="assay-chart-container">
+                        <canvas id="assayChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="about-section" id="about">
+        <div class="section-container">
+            <div class="section-header">
+                <span class="section-tag"><i class="fas fa-users"></i> About</span>
+                <h2 class="section-title">About the Project</h2>
+                <p class="section-desc">Built with cutting-edge ML techniques for accurate drug toxicity assessment</p>
+            </div>
+
+            <div class="about-grid">
+                <div class="about-card tech-card">
+                    <div class="about-card-icon"><i class="fas fa-brain"></i></div>
+                    <h3>XGBoost Model</h3>
+                    <p>Gradient-boosted decision tree ensemble trained with optimized hyperparameters and class imbalance handling via scale_pos_weight for robust toxicity classification.</p>
+                </div>
+                <div class="about-card tech-card">
+                    <div class="about-card-icon"><i class="fas fa-database"></i></div>
+                    <h3>Tox21 Dataset</h3>
+                    <p>NIH Tox21 challenge dataset containing ~8,000 compounds tested across 12 biological assays covering nuclear receptor and stress response pathways.</p>
+                </div>
+                <div class="about-card tech-card">
+                    <div class="about-card-icon"><i class="fas fa-fingerprint"></i></div>
+                    <h3>Molecular Features</h3>
+                    <p>2048-bit Morgan circular fingerprints (ECFP4) combined with 7 physicochemical descriptors computed via RDKit for comprehensive molecular representation.</p>
+                </div>
+                <div class="about-card tech-card">
+                    <div class="about-card-icon"><i class="fas fa-server"></i></div>
+                    <h3>Flask API</h3>
+                    <p>RESTful backend serving real-time predictions with RDKit molecular parsing, descriptor computation, and multi-assay inference in a single API call.</p>
+                </div>
+            </div>
+
+            <div class="team-section">
+                <h3 class="team-title">
+                    <span class="team-icon"><i class="fas fa-atom"></i></span>
+                    Team ATUM
+                </h3>
+                <div class="team-grid">
+                    <div class="team-card">
+                        <div class="team-avatar">
+                            <i class="fas fa-user-astronaut"></i>
+                        </div>
+                        <h4>Member 1</h4>
+                        <span class="team-role">ML Engineer</span>
+                        <p>Model architecture & training pipeline</p>
+                    </div>
+                    <div class="team-card">
+                        <div class="team-avatar">
+                            <i class="fas fa-user-ninja"></i>
+                        </div>
+                        <h4>Member 2</h4>
+                        <span class="team-role">Backend Developer</span>
+                        <p>Flask API & RDKit integration</p>
+                    </div>
+                    <div class="team-card">
+                        <div class="team-avatar">
+                            <i class="fas fa-user-secret"></i>
+                        </div>
+                        <h4>Member 3</h4>
+                        <span class="team-role">Frontend Developer</span>
+                        <p>UI/UX design & visualization</p>
+                    </div>
+                    <div class="team-card">
+                        <div class="team-avatar">
+                            <i class="fas fa-user-graduate"></i>
+                        </div>
+                        <h4>Member 4</h4>
+                        <span class="team-role">Data Scientist</span>
+                        <p>Feature engineering & analysis</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <footer class="footer">
+        <div class="footer-container">
+            <div class="footer-content">
+                <div class="footer-logo">
+                    <i class="fas fa-atom"></i>
+                    <span>ATUM</span>
+                </div>
+                <p class="footer-text">Drug Toxicity Prediction &mdash; Hackathon Project 2024</p>
+                <div class="footer-tech">
+                    <span>Flask</span>
+                    <span>XGBoost</span>
+                    <span>RDKit</span>
+                    <span>Tox21</span>
+                    <span>Three.js</span>
+                    <span>Chart.js</span>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <p>&copy; 2024 Team ATUM. All rights reserved.</p>
+            </div>
+        </div>
+    </footer>
+
+    <script src="script.js"></script>
+</body>
+</html>
