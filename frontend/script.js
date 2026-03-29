@@ -1,5 +1,10 @@
 const API_URL = 'http://localhost:5000';
 
+let lastPredictionData = null;
+let lastPubchemData = null;
+let bulkResultsData = [];
+let bulkParsedSmiles = [];
+
 // ==================== CUSTOM CURSOR ====================
 const cursor = document.getElementById('cursor');
 const follower = document.getElementById('cursorFollower');
@@ -22,16 +27,19 @@ function animateFollower() {
 }
 animateFollower();
 
-document.querySelectorAll('a, button, input, .example-btn, .predict-btn, .nav-link').forEach(el => {
-    el.addEventListener('mouseenter', () => {
-        cursor.classList.add('hover');
-        follower.classList.add('hover');
+function setupCursorHovers() {
+    document.querySelectorAll('a, button, input, .example-btn, .predict-btn, .nav-link, .drop-zone, .action-btn').forEach(el => {
+        el.addEventListener('mouseenter', () => {
+            cursor.classList.add('hover');
+            follower.classList.add('hover');
+        });
+        el.addEventListener('mouseleave', () => {
+            cursor.classList.remove('hover');
+            follower.classList.remove('hover');
+        });
     });
-    el.addEventListener('mouseleave', () => {
-        cursor.classList.remove('hover');
-        follower.classList.remove('hover');
-    });
-});
+}
+setupCursorHovers();
 
 // ==================== NAVBAR ====================
 const navbar = document.getElementById('navbar');
@@ -119,8 +127,6 @@ function initMolecule() {
     const moleculeGroup = new THREE.Group();
     scene.add(moleculeGroup);
 
-    const atomColors = [0xc9a84c, 0xe8720c, 0x22c55e, 0x3b82f6, 0xef4444, 0xa855f7, 0xf59e0b];
-
     const atomPositions = [
         { pos: [0, 0, 0], color: 0xc9a84c, size: 0.5 },
         { pos: [1.5, 0.8, 0.3], color: 0xef4444, size: 0.4 },
@@ -195,34 +201,19 @@ function initMolecule() {
     });
 
     const ring1Geo = new THREE.RingGeometry(2.8, 2.85, 64);
-    const ring1Mat = new THREE.MeshBasicMaterial({
-        color: 0xc9a84c,
-        transparent: true,
-        opacity: 0.15,
-        side: THREE.DoubleSide
-    });
+    const ring1Mat = new THREE.MeshBasicMaterial({ color: 0xc9a84c, transparent: true, opacity: 0.15, side: THREE.DoubleSide });
     const ring1 = new THREE.Mesh(ring1Geo, ring1Mat);
     moleculeGroup.add(ring1);
 
     const ring2Geo = new THREE.RingGeometry(3.2, 3.25, 64);
-    const ring2Mat = new THREE.MeshBasicMaterial({
-        color: 0xe8720c,
-        transparent: true,
-        opacity: 0.1,
-        side: THREE.DoubleSide
-    });
+    const ring2Mat = new THREE.MeshBasicMaterial({ color: 0xe8720c, transparent: true, opacity: 0.1, side: THREE.DoubleSide });
     const ring2 = new THREE.Mesh(ring2Geo, ring2Mat);
     ring2.rotation.x = Math.PI / 3;
     ring2.rotation.y = Math.PI / 6;
     moleculeGroup.add(ring2);
 
     const ring3Geo = new THREE.RingGeometry(3.5, 3.55, 64);
-    const ring3Mat = new THREE.MeshBasicMaterial({
-        color: 0xc9a84c,
-        transparent: true,
-        opacity: 0.07,
-        side: THREE.DoubleSide
-    });
+    const ring3Mat = new THREE.MeshBasicMaterial({ color: 0xc9a84c, transparent: true, opacity: 0.07, side: THREE.DoubleSide });
     const ring3 = new THREE.Mesh(ring3Geo, ring3Mat);
     ring3.rotation.x = -Math.PI / 4;
     ring3.rotation.z = Math.PI / 5;
@@ -230,15 +221,12 @@ function initMolecule() {
 
     const ambientLight = new THREE.AmbientLight(0x404040, 0.8);
     scene.add(ambientLight);
-
     const pointLight1 = new THREE.PointLight(0xc9a84c, 1.5, 20);
     pointLight1.position.set(5, 5, 5);
     scene.add(pointLight1);
-
     const pointLight2 = new THREE.PointLight(0xe8720c, 1, 20);
     pointLight2.position.set(-5, -3, 3);
     scene.add(pointLight2);
-
     const pointLight3 = new THREE.PointLight(0x3b82f6, 0.6, 20);
     pointLight3.position.set(0, 5, -5);
     scene.add(pointLight3);
@@ -249,18 +237,14 @@ function initMolecule() {
     function animate() {
         requestAnimationFrame(animate);
         time += 0.008;
-
         moleculeGroup.rotation.y = time * 0.5;
         moleculeGroup.rotation.x = Math.sin(time * 0.3) * 0.15;
-
         atoms.forEach((atom, i) => {
             atom.position.y = atomPositions[i].pos[1] + Math.sin(time * 2 + i) * 0.05;
         });
-
         ring1.rotation.z = time * 0.2;
         ring2.rotation.z = -time * 0.15;
         ring3.rotation.y = time * 0.1;
-
         renderer.render(scene, camera);
     }
     animate();
@@ -271,7 +255,6 @@ function initMolecule() {
         renderer.setSize(canvas.clientWidth, canvas.clientHeight);
     });
 }
-
 initMolecule();
 
 // ==================== HEALTH CHECK ====================
@@ -315,7 +298,6 @@ clearBtn.addEventListener('click', () => {
 function showLoading() {
     const overlay = document.getElementById('loadingOverlay');
     const errorMsg = document.getElementById('errorMessage');
-    const resultsSection = document.getElementById('results');
 
     overlay.style.display = 'block';
     errorMsg.style.display = 'none';
@@ -399,8 +381,10 @@ async function handlePredict() {
         }
 
         const data = await response.json();
+        lastPredictionData = data;
         hideLoading();
         displayResults(data);
+        fetchPubchemData(smiles);
 
     } catch (error) {
         showError(error.message || 'Failed to connect to the server. Make sure the Flask backend is running.');
@@ -408,6 +392,24 @@ async function handlePredict() {
         predictBtn.disabled = false;
         btnContent.style.display = 'flex';
         btnLoading.style.display = 'none';
+    }
+}
+
+// ==================== PUBCHEM FETCH ====================
+async function fetchPubchemData(smiles) {
+    try {
+        const response = await fetch(`${API_URL}/pubchem?smiles=${encodeURIComponent(smiles)}`);
+        if (response.ok) {
+            const data = await response.json();
+            lastPubchemData = data;
+            if (data.compound_name) {
+                const resultSmiles = document.getElementById('resultSmiles');
+                resultSmiles.textContent = `${data.compound_name} (${smiles})`;
+            }
+        }
+    } catch (e) {
+        console.log('PubChem lookup failed:', e);
+        lastPubchemData = null;
     }
 }
 
@@ -420,10 +422,8 @@ function displayResults(data) {
         resultsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }, 100);
 
-    // SMILES display
     document.getElementById('resultSmiles').textContent = data.smiles;
 
-    // Verdict
     const verdictCard = document.getElementById('verdictCard');
     const verdictIcon = document.getElementById('verdictIcon');
     const verdictText = document.getElementById('verdictText');
@@ -434,7 +434,6 @@ function displayResults(data) {
         : '<i class="fas fa-shield-alt"></i>';
     verdictText.textContent = data.prediction;
 
-    // Confidence
     const confidenceValue = document.getElementById('confidenceValue');
     const confidenceArc = document.getElementById('confidenceArc');
     const circumference = 2 * Math.PI * 54;
@@ -450,25 +449,21 @@ function displayResults(data) {
 
     animateCounter(confidenceValue, 0, Math.round(data.confidence), 1500);
 
-    // Assay results
     renderAssays(data.assay_results);
-
-    // Molecular properties
     renderProperties(data.molecular_properties);
-
-    // Feature importance chart
     renderImportanceChart(data.feature_importances);
-
-    // Assay chart
     renderAssayChart(data.assay_results);
+    renderOrganToxicity(data.organ_toxicity);
+    renderSafetyPanel(data);
 
-    // Update model accuracy stat
     if (data.model_info) {
         const statEl = document.getElementById('statAccuracy');
         if (statEl && data.model_info.accuracy) {
             statEl.textContent = data.model_info.accuracy + '%';
         }
     }
+
+    setupCursorHovers();
 }
 
 function animateCounter(element, start, end, duration) {
@@ -526,13 +521,13 @@ function renderProperties(props) {
     grid.innerHTML = '';
 
     const propertyConfig = [
-        { key: 'MolWt', label: 'Mol. Weight', unit: 'g/mol', icon: 'fas fa-weight-hanging' },
-        { key: 'LogP', label: 'LogP', unit: '', icon: 'fas fa-tint' },
-        { key: 'NumHDonors', label: 'H-Bond Donors', unit: '', icon: 'fas fa-hand-holding-water' },
-        { key: 'NumHAcceptors', label: 'H-Bond Acceptors', unit: '', icon: 'fas fa-magnet' },
-        { key: 'TPSA', label: 'TPSA', unit: 'Å²', icon: 'fas fa-expand' },
-        { key: 'NumRotatableBonds', label: 'Rotatable Bonds', unit: '', icon: 'fas fa-sync-alt' },
-        { key: 'NumAromaticRings', label: 'Aromatic Rings', unit: '', icon: 'fas fa-ring' }
+        { key: 'MolWt', label: 'Mol. Weight', unit: 'g/mol' },
+        { key: 'LogP', label: 'LogP', unit: '' },
+        { key: 'NumHDonors', label: 'H-Bond Donors', unit: '' },
+        { key: 'NumHAcceptors', label: 'H-Bond Acceptors', unit: '' },
+        { key: 'TPSA', label: 'TPSA', unit: 'A\u00b2' },
+        { key: 'NumRotatableBonds', label: 'Rotatable Bonds', unit: '' },
+        { key: 'NumAromaticRings', label: 'Aromatic Rings', unit: '' }
     ];
 
     propertyConfig.forEach((prop, index) => {
@@ -549,6 +544,226 @@ function renderProperties(props) {
     });
 }
 
+// ==================== ORGAN TOXICITY ====================
+function renderOrganToxicity(organData) {
+    const grid = document.getElementById('organGrid');
+    const badge = document.getElementById('organBadge');
+    grid.innerHTML = '';
+
+    if (!organData || Object.keys(organData).length === 0) {
+        grid.innerHTML = '<p style="color: var(--text-muted); text-align: center; grid-column: 1/-1;">No organ toxicity data available.</p>';
+        return;
+    }
+
+    const primaryOrgans = [
+        { key: 'liver', icon: 'fas fa-disease', displayName: 'Liver' },
+        { key: 'kidney', icon: 'fas fa-lungs', displayName: 'Kidney' },
+        { key: 'heart', icon: 'fas fa-heartbeat', displayName: 'Heart' },
+        { key: 'brain', icon: 'fas fa-brain', displayName: 'Brain' },
+        { key: 'hormone', icon: 'fas fa-dna', displayName: 'Hormones' },
+        { key: 'genome', icon: 'fas fa-radiation', displayName: 'Genome' },
+        { key: 'reproductive', icon: 'fas fa-venus-mars', displayName: 'Reproductive' },
+        { key: 'immune', icon: 'fas fa-shield-virus', displayName: 'Immune' },
+        { key: 'cancer', icon: 'fas fa-biohazard', displayName: 'Cancer Risk' },
+        { key: 'metabolism', icon: 'fas fa-fire', displayName: 'Metabolic' },
+        { key: 'systemic', icon: 'fas fa-exclamation-triangle', displayName: 'Systemic' }
+    ];
+
+    let highCount = 0;
+    let mediumCount = 0;
+
+    primaryOrgans.forEach((organ, index) => {
+        const data = organData[organ.key];
+        if (!data) return;
+
+        const riskLevel = data.risk_level || 'none';
+        if (riskLevel === 'high') highCount++;
+        if (riskLevel === 'medium') mediumCount++;
+
+        const card = document.createElement('div');
+        card.className = `organ-card risk-${riskLevel}`;
+        card.style.animation = `fadeInUp 0.4s ease ${index * 0.06}s both`;
+
+        let assaysHtml = '';
+        if (data.active_assays && data.active_assays.length > 0) {
+            assaysHtml = data.active_assays.map(a =>
+                `<span class="organ-assay-tag active">${a.assay}</span>`
+            ).join('');
+        } else {
+            assaysHtml = '<span class="organ-assay-tag inactive">No active assays</span>';
+        }
+
+        const riskLabel = riskLevel === 'none' ? 'None' : riskLevel.charAt(0).toUpperCase() + riskLevel.slice(1);
+
+        card.innerHTML = `
+            <div class="organ-icon">
+                <i class="${organ.icon}"></i>
+            </div>
+            <div class="organ-name">${organ.displayName}</div>
+            <span class="organ-risk-badge">${riskLabel} Risk</span>
+            <div class="organ-risk-pct">${data.risk_percentage || 0}% risk score</div>
+            <div class="organ-assays">${assaysHtml}</div>
+        `;
+        grid.appendChild(card);
+    });
+
+    if (highCount > 0) {
+        badge.textContent = `${highCount} High Risk`;
+        badge.style.background = 'rgba(239, 68, 68, 0.1)';
+        badge.style.color = '#ef4444';
+        badge.style.borderColor = 'rgba(239, 68, 68, 0.2)';
+    } else if (mediumCount > 0) {
+        badge.textContent = `${mediumCount} Medium Risk`;
+        badge.style.background = 'rgba(245, 158, 11, 0.1)';
+        badge.style.color = '#f59e0b';
+        badge.style.borderColor = 'rgba(245, 158, 11, 0.2)';
+    } else {
+        badge.textContent = 'Low Risk';
+        badge.style.background = 'rgba(34, 197, 94, 0.1)';
+        badge.style.color = '#22c55e';
+        badge.style.borderColor = 'rgba(34, 197, 94, 0.2)';
+    }
+}
+
+// ==================== SAFETY PANEL ====================
+function renderSafetyPanel(data) {
+    renderPhysicalState(data.physical_state_warning);
+    renderDosageContext(data.dosage_context);
+    renderSuggestions(data.toxicity_suggestions);
+}
+
+function renderPhysicalState(physState) {
+    const body = document.getElementById('physicalStateBody');
+    body.innerHTML = '';
+
+    if (!physState) {
+        body.innerHTML = '<p>No physical state data available.</p>';
+        return;
+    }
+
+    const vaporClass = `vapor-${physState.vapor_risk_level || 'low'}`;
+    let html = `
+        <div class="physical-state-badge ${vaporClass}">
+            <i class="fas fa-thermometer-half"></i>
+            State: ${physState.estimated_physical_state || 'Unknown'} | Vapor Risk: ${(physState.vapor_risk_level || 'low').toUpperCase()}
+        </div>
+    `;
+
+    if (physState.warnings && physState.warnings.length > 0) {
+        physState.warnings.forEach(w => {
+            html += `
+                <div class="safety-warning-item">
+                    <i class="fas fa-exclamation-circle"></i>
+                    <span>${w}</span>
+                </div>
+            `;
+        });
+    } else {
+        html += '<p>No specific physical state warnings.</p>';
+    }
+
+    body.innerHTML = html;
+}
+
+function renderDosageContext(dosage) {
+    const body = document.getElementById('dosageBody');
+    body.innerHTML = '';
+
+    if (!dosage) {
+        body.innerHTML = '<p>No dosage context available.</p>';
+        return;
+    }
+
+    let windowClass = 'wide';
+    if (dosage.therapeutic_window === 'narrow') windowClass = 'narrow';
+    else if (dosage.therapeutic_window === 'moderate') windowClass = 'moderate';
+
+    let html = `
+        <div style="margin-bottom: 16px;">
+            <span class="dosage-badge ${windowClass}">
+                <i class="fas fa-ruler-horizontal"></i>
+                Therapeutic Window: ${(dosage.therapeutic_window || 'unknown').toUpperCase()}
+            </span>
+            &nbsp;
+            <span class="dosage-badge ${dosage.overdose_risk === 'high' ? 'narrow' : dosage.overdose_risk === 'moderate' ? 'moderate' : 'wide'}">
+                <i class="fas fa-arrow-up"></i>
+                Overdose Risk: ${(dosage.overdose_risk || 'unknown').toUpperCase()}
+            </span>
+        </div>
+        <div class="dosage-grid">
+            <div class="dosage-item">
+                <div class="dosage-item-label">Absorption</div>
+                <div class="dosage-item-value">${dosage.absorption_profile || 'N/A'}</div>
+            </div>
+            <div class="dosage-item">
+                <div class="dosage-item-label">Distribution</div>
+                <div class="dosage-item-value">${dosage.distribution_notes || 'N/A'}</div>
+            </div>
+            <div class="dosage-item">
+                <div class="dosage-item-label">Metabolism Risk</div>
+                <div class="dosage-item-value">${dosage.metabolism_risk || 'N/A'}</div>
+            </div>
+            <div class="dosage-item">
+                <div class="dosage-item-label">Excretion</div>
+                <div class="dosage-item-value">${dosage.excretion_notes || 'N/A'}</div>
+            </div>
+        </div>
+    `;
+
+    if (dosage.general_guidance) {
+        html += `<p style="margin-top:12px;"><strong>General Guidance:</strong> ${dosage.general_guidance}</p>`;
+    }
+
+    if (dosage.warnings && dosage.warnings.length > 0) {
+        html += '<div class="dosage-warnings">';
+        dosage.warnings.forEach(w => {
+            html += `
+                <div class="dosage-warning-item">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <span>${w}</span>
+                </div>
+            `;
+        });
+        html += '</div>';
+    }
+
+    body.innerHTML = html;
+}
+
+function renderSuggestions(suggestions) {
+    const body = document.getElementById('suggestionsBody');
+    body.innerHTML = '';
+
+    if (!suggestions || suggestions.length === 0) {
+        body.innerHTML = '<p>No specific toxicity reduction suggestions available.</p>';
+        return;
+    }
+
+    let html = '';
+    suggestions.forEach((s, i) => {
+        let assayTags = '';
+        if (s.affected_assays && s.affected_assays.length > 0) {
+            assayTags = '<div class="suggestion-assays">' +
+                s.affected_assays.map(a => `<span class="suggestion-assay-tag">${a}</span>`).join('') +
+                '</div>';
+        }
+
+        html += `
+            <div class="suggestion-card priority-${s.priority || 'low'}" style="animation: fadeInUp 0.4s ease ${i * 0.1}s both;">
+                <div class="suggestion-header">
+                    <span class="suggestion-title">${s.title}</span>
+                    <span class="suggestion-priority">${(s.priority || 'low').toUpperCase()}</span>
+                </div>
+                <div class="suggestion-detail">${s.detail}</div>
+                ${assayTags}
+            </div>
+        `;
+    });
+
+    body.innerHTML = html;
+}
+
+// ==================== CHARTS ====================
 function renderImportanceChart(importances) {
     const ctx = document.getElementById('importanceChart').getContext('2d');
 
@@ -604,16 +819,10 @@ function renderImportanceChart(importances) {
                 },
                 y: {
                     grid: { display: false },
-                    ticks: {
-                        color: '#94a3b8',
-                        font: { size: 11, family: "'JetBrains Mono', monospace" }
-                    }
+                    ticks: { color: '#94a3b8', font: { size: 11, family: "'JetBrains Mono', monospace" } }
                 }
             },
-            animation: {
-                duration: 1200,
-                easing: 'easeOutQuart'
-            }
+            animation: { duration: 1200, easing: 'easeOutQuart' }
         }
     });
 }
@@ -669,12 +878,7 @@ function renderAssayChart(assayResults) {
             scales: {
                 x: {
                     grid: { display: false },
-                    ticks: {
-                        color: '#94a3b8',
-                        font: { size: 9, family: "'JetBrains Mono', monospace" },
-                        maxRotation: 45,
-                        minRotation: 45
-                    }
+                    ticks: { color: '#94a3b8', font: { size: 9, family: "'JetBrains Mono', monospace" }, maxRotation: 45, minRotation: 45 }
                 },
                 y: {
                     grid: { color: 'rgba(30, 41, 59, 0.5)', drawBorder: false },
@@ -683,13 +887,623 @@ function renderAssayChart(assayResults) {
                     beginAtZero: true
                 }
             },
-            animation: {
-                duration: 1200,
-                easing: 'easeOutQuart',
-                delay: (context) => context.dataIndex * 80
-            }
+            animation: { duration: 1200, easing: 'easeOutQuart', delay: (context) => context.dataIndex * 80 }
         }
     });
+}
+
+// ==================== BULK CSV UPLOAD ====================
+const dropZone = document.getElementById('dropZone');
+const csvFileInput = document.getElementById('csvFileInput');
+const bulkFileInfo = document.getElementById('bulkFileInfo');
+const bulkFileName = document.getElementById('bulkFileName');
+const bulkFileCompounds = document.getElementById('bulkFileCompounds');
+const bulkRemoveFile = document.getElementById('bulkRemoveFile');
+const bulkPredictBtn = document.getElementById('bulkPredictBtn');
+const downloadSampleCsv = document.getElementById('downloadSampleCsv');
+const downloadBulkResults = document.getElementById('downloadBulkResults');
+
+dropZone.addEventListener('click', () => csvFileInput.click());
+
+dropZone.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dropZone.classList.add('drag-over');
+});
+
+dropZone.addEventListener('dragleave', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dropZone.classList.remove('drag-over');
+});
+
+dropZone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dropZone.classList.remove('drag-over');
+    const files = e.dataTransfer.files;
+    if (files.length > 0 && files[0].name.endsWith('.csv')) {
+        handleCsvFile(files[0]);
+    } else {
+        showBulkError('Please upload a valid CSV file.');
+    }
+});
+
+csvFileInput.addEventListener('change', (e) => {
+    if (e.target.files.length > 0) {
+        handleCsvFile(e.target.files[0]);
+    }
+});
+
+bulkRemoveFile.addEventListener('click', () => {
+    resetBulkUpload();
+});
+
+function handleCsvFile(file) {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        const text = e.target.result;
+        const parsed = parseCSV(text);
+
+        if (parsed.length === 0) {
+            showBulkError('No valid SMILES found in CSV. Make sure the file has a "smiles" column.');
+            return;
+        }
+
+        bulkParsedSmiles = parsed;
+        bulkFileName.textContent = file.name;
+        bulkFileCompounds.textContent = `${parsed.length} compounds`;
+        bulkFileInfo.style.display = 'block';
+        dropZone.style.display = 'none';
+        bulkPredictBtn.disabled = false;
+        document.getElementById('bulkError').style.display = 'none';
+    };
+    reader.readAsText(file);
+}
+
+function parseCSV(text) {
+    const lines = text.trim().split('\n');
+    if (lines.length < 2) return [];
+
+    const headers = lines[0].split(',').map(h => h.trim().toLowerCase().replace(/"/g, ''));
+    const smilesIdx = headers.indexOf('smiles');
+    const nameIdx = headers.indexOf('name');
+
+    if (smilesIdx === -1) return [];
+
+    const results = [];
+    for (let i = 1; i < lines.length; i++) {
+        const cols = parseCSVLine(lines[i]);
+        if (cols.length > smilesIdx && cols[smilesIdx].trim()) {
+            results.push({
+                smiles: cols[smilesIdx].trim(),
+                name: nameIdx >= 0 && cols.length > nameIdx ? cols[nameIdx].trim() : `Compound ${i}`
+            });
+        }
+    }
+    return results;
+}
+
+function parseCSVLine(line) {
+    const result = [];
+    let current = '';
+    let inQuotes = false;
+    for (let i = 0; i < line.length; i++) {
+        const char = line[i];
+        if (char === '"') {
+            inQuotes = !inQuotes;
+        } else if (char === ',' && !inQuotes) {
+            result.push(current);
+            current = '';
+        } else {
+            current += char;
+        }
+    }
+    result.push(current);
+    return result;
+}
+
+function resetBulkUpload() {
+    bulkParsedSmiles = [];
+    bulkFileInfo.style.display = 'none';
+    dropZone.style.display = 'block';
+    bulkPredictBtn.disabled = true;
+    csvFileInput.value = '';
+    document.getElementById('bulkResults').style.display = 'none';
+    document.getElementById('bulkProgress').style.display = 'none';
+    document.getElementById('bulkError').style.display = 'none';
+}
+
+function showBulkError(message) {
+    const el = document.getElementById('bulkError');
+    document.getElementById('bulkErrorText').textContent = message;
+    el.style.display = 'flex';
+}
+
+// ==================== SAMPLE CSV DOWNLOAD ====================
+downloadSampleCsv.addEventListener('click', () => {
+    const csvContent = `name,smiles
+Aspirin,CC(=O)Oc1ccccc1C(=O)O
+Caffeine,Cn1c(=O)c2c(ncn2C)n(C)c1=O
+Warfarin,CC(=O)CC(c1ccccc1)c1c(O)c2ccccc2oc1=O
+Benzene,c1ccccc1
+Ethanol,CCO`;
+
+    downloadFile('sample_smiles.csv', csvContent, 'text/csv');
+});
+
+function downloadFile(filename, content, mimeType) {
+    const blob = new Blob([content], { type: mimeType });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+}
+
+// ==================== BULK PREDICTION ====================
+bulkPredictBtn.addEventListener('click', handleBulkPredict);
+
+async function handleBulkPredict() {
+    if (bulkParsedSmiles.length === 0) return;
+
+    const btnContent = bulkPredictBtn.querySelector('.predict-btn-content');
+    const btnLoading = bulkPredictBtn.querySelector('.predict-btn-loading');
+    bulkPredictBtn.disabled = true;
+    btnContent.style.display = 'none';
+    btnLoading.style.display = 'flex';
+
+    const progress = document.getElementById('bulkProgress');
+    const progressFill = document.getElementById('bulkProgressFill');
+    const progressText = document.getElementById('bulkProgressText');
+    progress.style.display = 'flex';
+    progressFill.style.width = '0%';
+    progressText.textContent = '0%';
+
+    document.getElementById('bulkError').style.display = 'none';
+    document.getElementById('bulkResults').style.display = 'none';
+
+    bulkResultsData = [];
+    const smilesList = bulkParsedSmiles.map(p => p.smiles);
+
+    try {
+        const response = await fetch(`${API_URL}/predict-bulk`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ smiles_list: smilesList })
+        });
+
+        if (!response.ok) {
+            const errData = await response.json();
+            throw new Error(errData.error || 'Bulk prediction failed');
+        }
+
+        const data = await response.json();
+
+        let pct = 0;
+        const animInterval = setInterval(() => {
+            pct += 5;
+            if (pct > 100) pct = 100;
+            progressFill.style.width = pct + '%';
+            progressText.textContent = pct + '%';
+            if (pct >= 100) clearInterval(animInterval);
+        }, 50);
+
+        setTimeout(() => {
+            displayBulkResults(data);
+        }, 1200);
+
+    } catch (error) {
+        showBulkError(error.message || 'Failed to run bulk prediction.');
+    } finally {
+        setTimeout(() => {
+            bulkPredictBtn.disabled = false;
+            btnContent.style.display = 'flex';
+            btnLoading.style.display = 'none';
+        }, 1300);
+    }
+}
+
+function displayBulkResults(data) {
+    const resultsDiv = document.getElementById('bulkResults');
+    resultsDiv.style.display = 'block';
+
+    document.getElementById('bulkTotalCount').textContent = data.summary.total_submitted;
+    document.getElementById('bulkSafeCount').textContent = data.summary.safe_count;
+    document.getElementById('bulkToxicCount').textContent = data.summary.toxic_count;
+    document.getElementById('bulkErrorCount').textContent = data.summary.failed;
+
+    const tbody = document.getElementById('bulkTableBody');
+    tbody.innerHTML = '';
+
+    bulkResultsData = data.results;
+
+    data.results.forEach((result, i) => {
+        const compoundName = bulkParsedSmiles[result.index] ? bulkParsedSmiles[result.index].name : `Compound ${result.index + 1}`;
+        const toxicAssays = Object.entries(result.assay_results || {})
+            .filter(([_, v]) => v.toxic)
+            .map(([k, _]) => k);
+
+        const assayTags = toxicAssays.length > 0
+            ? toxicAssays.map(a => `<span class="assay-tag active">${a}</span>`).join('')
+            : '<span class="assay-tag none">None</span>';
+
+        const row = document.createElement('tr');
+        row.className = result.is_toxic ? 'row-toxic' : 'row-safe';
+        row.style.animation = `fadeInUp 0.3s ease ${i * 0.03}s both`;
+        row.innerHTML = `
+            <td>${i + 1}</td>
+            <td class="compound-name">${compoundName}</td>
+            <td class="smiles-cell" title="${result.smiles}">${result.smiles}</td>
+            <td><span class="prediction-badge ${result.is_toxic ? 'toxic' : 'safe'}">
+                <i class="fas fa-${result.is_toxic ? 'skull-crossbones' : 'shield-alt'}"></i>
+                ${result.prediction}
+            </span></td>
+            <td class="confidence-cell">${result.confidence}%</td>
+            <td class="toxic-assays-cell">${assayTags}</td>
+            <td><button class="action-btn" onclick="viewBulkDetail(${i})">
+                <i class="fas fa-eye"></i> View
+            </button></td>
+        `;
+        tbody.appendChild(row);
+    });
+
+    if (data.errors && data.errors.length > 0) {
+        data.errors.forEach((err) => {
+            const row = document.createElement('tr');
+            row.style.opacity = '0.5';
+            row.innerHTML = `
+                <td>${err.index + 1}</td>
+                <td class="compound-name">${bulkParsedSmiles[err.index] ? bulkParsedSmiles[err.index].name : 'Unknown'}</td>
+                <td class="smiles-cell" title="${err.smiles}">${err.smiles}</td>
+                <td colspan="4" style="color: var(--danger);"><i class="fas fa-exclamation-triangle"></i> ${err.error}</td>
+            `;
+            tbody.appendChild(row);
+        });
+    }
+
+    setupCursorHovers();
+}
+
+function viewBulkDetail(index) {
+    if (bulkResultsData[index]) {
+        lastPredictionData = bulkResultsData[index];
+        displayResults(bulkResultsData[index]);
+        fetchPubchemData(bulkResultsData[index].smiles);
+    }
+}
+
+// ==================== DOWNLOAD BULK RESULTS CSV ====================
+downloadBulkResults.addEventListener('click', () => {
+    if (bulkResultsData.length === 0) return;
+
+    let csv = 'Index,Compound,SMILES,Prediction,Confidence,Toxic_Probability,MolWt,LogP,NumHDonors,NumHAcceptors,TPSA,NumRotatableBonds,NumAromaticRings,Active_Assays\n';
+
+    bulkResultsData.forEach((result, i) => {
+        const compoundName = bulkParsedSmiles[result.index] ? bulkParsedSmiles[result.index].name : `Compound ${result.index + 1}`;
+        const props = result.molecular_properties || {};
+        const toxicAssays = Object.entries(result.assay_results || {})
+            .filter(([_, v]) => v.toxic)
+            .map(([k, _]) => k)
+            .join('; ');
+
+        csv += `${i + 1},"${compoundName}","${result.smiles}",${result.prediction},${result.confidence},${result.toxic_probability},${props.MolWt || ''},${props.LogP || ''},${props.NumHDonors || ''},${props.NumHAcceptors || ''},${props.TPSA || ''},${props.NumRotatableBonds || ''},${props.NumAromaticRings || ''},"${toxicAssays}"\n`;
+    });
+
+    downloadFile('bulk_toxicity_results.csv', csv, 'text/csv');
+});
+
+// ==================== PDF REPORT GENERATION ====================
+document.getElementById('downloadPdfBtn').addEventListener('click', generatePDFReport);
+
+function generatePDFReport() {
+    if (!lastPredictionData) return;
+
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF('p', 'mm', 'a4');
+    const data = lastPredictionData;
+    const pageWidth = 210;
+    const margin = 20;
+    const contentWidth = pageWidth - 2 * margin;
+    let y = 20;
+
+    function addPage() {
+        doc.addPage();
+        y = 20;
+    }
+
+    function checkPageBreak(needed) {
+        if (y + needed > 275) {
+            addPage();
+        }
+    }
+
+    doc.setFillColor(5, 7, 10);
+    doc.rect(0, 0, 210, 297, 'F');
+
+    doc.setFillColor(201, 168, 76);
+    doc.rect(0, 0, 210, 45, 'F');
+
+    doc.setTextColor(0, 0, 0);
+    doc.setFontSize(24);
+    doc.setFont('helvetica', 'bold');
+    doc.text('ATUM', margin, y + 10);
+
+    doc.setFontSize(11);
+    doc.setFont('helvetica', 'normal');
+    doc.text('Drug Toxicity Prediction Report', margin, y + 18);
+
+    doc.setFontSize(8);
+    doc.text(`Generated: ${new Date().toLocaleString()}`, pageWidth - margin, y + 10, { align: 'right' });
+    doc.text('Powered by XGBoost & Tox21', pageWidth - margin, y + 16, { align: 'right' });
+
+    y = 55;
+
+    doc.setTextColor(201, 168, 76);
+    doc.setFontSize(14);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Compound Information', margin, y);
+    y += 8;
+
+    doc.setDrawColor(201, 168, 76);
+    doc.setLineWidth(0.5);
+    doc.line(margin, y, pageWidth - margin, y);
+    y += 8;
+
+    doc.setTextColor(200, 200, 200);
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'normal');
+    doc.text(`SMILES: ${data.smiles}`, margin, y);
+    y += 7;
+
+    if (lastPubchemData && lastPubchemData.compound_name) {
+        doc.text(`Compound Name: ${lastPubchemData.compound_name}`, margin, y);
+        y += 7;
+        if (lastPubchemData.molecular_formula) {
+            doc.text(`Molecular Formula: ${lastPubchemData.molecular_formula}`, margin, y);
+            y += 7;
+        }
+        if (lastPubchemData.iupac_name) {
+            const iupacLines = doc.splitTextToSize(`IUPAC: ${lastPubchemData.iupac_name}`, contentWidth);
+            doc.text(iupacLines, margin, y);
+            y += iupacLines.length * 5 + 2;
+        }
+    }
+    y += 5;
+
+    checkPageBreak(30);
+    doc.setTextColor(201, 168, 76);
+    doc.setFontSize(14);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Prediction Verdict', margin, y);
+    y += 8;
+    doc.setDrawColor(201, 168, 76);
+    doc.line(margin, y, pageWidth - margin, y);
+    y += 8;
+
+    if (data.is_toxic) {
+        doc.setFillColor(60, 20, 20);
+        doc.roundedRect(margin, y, contentWidth, 20, 3, 3, 'F');
+        doc.setTextColor(239, 68, 68);
+    } else {
+        doc.setFillColor(20, 60, 30);
+        doc.roundedRect(margin, y, contentWidth, 20, 3, 3, 'F');
+        doc.setTextColor(34, 197, 94);
+    }
+
+    doc.setFontSize(16);
+    doc.setFont('helvetica', 'bold');
+    doc.text(data.prediction.toUpperCase(), margin + 10, y + 13);
+
+    doc.setTextColor(200, 200, 200);
+    doc.setFontSize(11);
+    doc.text(`Confidence: ${data.confidence}%`, pageWidth - margin - 10, y + 13, { align: 'right' });
+    y += 28;
+
+    checkPageBreak(60);
+    doc.setTextColor(201, 168, 76);
+    doc.setFontSize(14);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Molecular Properties', margin, y);
+    y += 8;
+    doc.setDrawColor(201, 168, 76);
+    doc.line(margin, y, pageWidth - margin, y);
+    y += 8;
+
+    doc.setTextColor(200, 200, 200);
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'normal');
+
+    const props = data.molecular_properties || {};
+    const propList = [
+        ['Molecular Weight', `${props.MolWt || 'N/A'} g/mol`],
+        ['LogP', `${props.LogP || 'N/A'}`],
+        ['H-Bond Donors', `${props.NumHDonors || 'N/A'}`],
+        ['H-Bond Acceptors', `${props.NumHAcceptors || 'N/A'}`],
+        ['TPSA', `${props.TPSA || 'N/A'} A\u00b2`],
+        ['Rotatable Bonds', `${props.NumRotatableBonds || 'N/A'}`],
+        ['Aromatic Rings', `${props.NumAromaticRings || 'N/A'}`]
+    ];
+
+    const colWidth = contentWidth / 2;
+    propList.forEach((prop, i) => {
+        const col = i % 2;
+        const xPos = margin + col * colWidth;
+        if (col === 0 && i > 0) y += 6;
+
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(148, 163, 184);
+        doc.text(prop[0] + ':', xPos, y);
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(201, 168, 76);
+        doc.text(prop[1], xPos + 45, y);
+    });
+    y += 12;
+
+    checkPageBreak(80);
+    doc.setTextColor(201, 168, 76);
+    doc.setFontSize(14);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Tox21 Assay Results', margin, y);
+    y += 8;
+    doc.setDrawColor(201, 168, 76);
+    doc.line(margin, y, pageWidth - margin, y);
+    y += 8;
+
+    doc.setFontSize(8);
+    const assayEntries = Object.entries(data.assay_results || {});
+
+    doc.setFillColor(30, 41, 59);
+    doc.roundedRect(margin, y, contentWidth, 7, 1, 1, 'F');
+    doc.setTextColor(201, 168, 76);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Assay', margin + 3, y + 5);
+    doc.text('Status', margin + 65, y + 5);
+    doc.text('Probability', margin + 100, y + 5);
+    y += 9;
+
+    assayEntries.forEach(([name, result], i) => {
+        checkPageBreak(8);
+        if (i % 2 === 0) {
+            doc.setFillColor(15, 21, 32);
+            doc.rect(margin, y - 3, contentWidth, 7, 'F');
+        }
+
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(200, 200, 200);
+        doc.text(name, margin + 3, y + 2);
+
+        if (result.toxic) {
+            doc.setTextColor(239, 68, 68);
+            doc.text('ACTIVE', margin + 65, y + 2);
+        } else {
+            doc.setTextColor(34, 197, 94);
+            doc.text('INACTIVE', margin + 65, y + 2);
+        }
+
+        doc.setTextColor(148, 163, 184);
+        doc.text(`${result.probability}%`, margin + 100, y + 2);
+        y += 7;
+    });
+    y += 5;
+
+    if (data.organ_toxicity) {
+        checkPageBreak(50);
+        doc.setTextColor(201, 168, 76);
+        doc.setFontSize(14);
+        doc.setFont('helvetica', 'bold');
+        doc.text('Organ Toxicity Summary', margin, y);
+        y += 8;
+        doc.setDrawColor(201, 168, 76);
+        doc.line(margin, y, pageWidth - margin, y);
+        y += 8;
+
+        doc.setFontSize(9);
+        Object.entries(data.organ_toxicity).forEach(([key, organ]) => {
+            checkPageBreak(10);
+            doc.setFont('helvetica', 'bold');
+
+            if (organ.risk_level === 'high') doc.setTextColor(239, 68, 68);
+            else if (organ.risk_level === 'medium') doc.setTextColor(245, 158, 11);
+            else doc.setTextColor(34, 197, 94);
+
+            const riskLabel = organ.risk_level === 'none' ? 'None' : organ.risk_level.charAt(0).toUpperCase() + organ.risk_level.slice(1);
+            doc.text(`${organ.name}: ${riskLabel} Risk (${organ.risk_percentage || 0}%)`, margin, y);
+            y += 6;
+
+            if (organ.active_assays && organ.active_assays.length > 0) {
+                doc.setFont('helvetica', 'normal');
+                doc.setTextColor(148, 163, 184);
+                doc.setFontSize(8);
+                const assayNames = organ.active_assays.map(a => a.assay).join(', ');
+                doc.text(`  Active: ${assayNames}`, margin + 5, y);
+                y += 5;
+                doc.setFontSize(9);
+            }
+        });
+        y += 5;
+    }
+
+    if (data.feature_importances) {
+        checkPageBreak(50);
+        doc.setTextColor(201, 168, 76);
+        doc.setFontSize(14);
+        doc.setFont('helvetica', 'bold');
+        doc.text('Top Feature Importances', margin, y);
+        y += 8;
+        doc.setDrawColor(201, 168, 76);
+        doc.line(margin, y, pageWidth - margin, y);
+        y += 8;
+
+        doc.setFontSize(9);
+        data.feature_importances.forEach(f => {
+            checkPageBreak(8);
+            doc.setFont('helvetica', 'normal');
+            doc.setTextColor(200, 200, 200);
+            doc.text(f.feature, margin + 3, y);
+
+            const barWidth = Math.min(f.importance * 800, contentWidth * 0.5);
+            doc.setFillColor(201, 168, 76);
+            doc.roundedRect(margin + 55, y - 3, barWidth, 5, 1, 1, 'F');
+
+            doc.setTextColor(148, 163, 184);
+            doc.text(`${f.importance}`, margin + 58 + barWidth, y);
+            y += 7;
+        });
+        y += 5;
+    }
+
+    if (data.toxicity_suggestions && data.toxicity_suggestions.length > 0) {
+        checkPageBreak(30);
+        doc.setTextColor(201, 168, 76);
+        doc.setFontSize(14);
+        doc.setFont('helvetica', 'bold');
+        doc.text('Safety Recommendations', margin, y);
+        y += 8;
+        doc.setDrawColor(201, 168, 76);
+        doc.line(margin, y, pageWidth - margin, y);
+        y += 8;
+
+        doc.setFontSize(9);
+        data.toxicity_suggestions.forEach(s => {
+            checkPageBreak(20);
+            doc.setFont('helvetica', 'bold');
+            if (s.priority === 'high') doc.setTextColor(239, 68, 68);
+            else if (s.priority === 'medium') doc.setTextColor(245, 158, 11);
+            else doc.setTextColor(34, 197, 94);
+
+            doc.text(`[${(s.priority || 'low').toUpperCase()}] ${s.title}`, margin, y);
+            y += 5;
+
+            doc.setFont('helvetica', 'normal');
+            doc.setTextColor(180, 180, 180);
+            doc.setFontSize(8);
+            const detailLines = doc.splitTextToSize(s.detail, contentWidth - 5);
+            doc.text(detailLines, margin + 3, y);
+            y += detailLines.length * 4 + 4;
+            doc.setFontSize(9);
+        });
+    }
+
+    checkPageBreak(25);
+    y += 5;
+    doc.setFillColor(201, 168, 76);
+    doc.rect(0, y, 210, 20, 'F');
+
+    doc.setTextColor(0, 0, 0);
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'bold');
+    doc.text('ATUM - Drug Toxicity Prediction', pageWidth / 2, y + 8, { align: 'center' });
+    doc.setFontSize(7);
+    doc.setFont('helvetica', 'normal');
+    doc.text('Powered by XGBoost, RDKit & Tox21 Dataset | Hackathon 2024', pageWidth / 2, y + 14, { align: 'center' });
+
+    const compoundName = (lastPubchemData && lastPubchemData.compound_name) ? lastPubchemData.compound_name : 'compound';
+    const safeName = compoundName.replace(/[^a-zA-Z0-9]/g, '_').substring(0, 30);
+    doc.save(`ATUM_Toxicity_Report_${safeName}.pdf`);
 }
 
 // ==================== SCROLL ANIMATIONS ====================
@@ -706,7 +1520,7 @@ const observer = new IntersectionObserver((entries) => {
     });
 }, observerOptions);
 
-document.querySelectorAll('.predict-card, .result-block, .about-card, .team-card').forEach(el => {
+document.querySelectorAll('.predict-card, .result-block, .about-card, .team-card, .bulk-card').forEach(el => {
     observer.observe(el);
 });
 
