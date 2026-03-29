@@ -182,6 +182,29 @@ a, button, input {
     border-radius: 2px;
 }
 
+  /*  SHAP     */
+  .shap-block {
+    margin-top: 0;
+    grid-column: 1 / -1;
+}
+
+.shap-desc {
+    font-size: 0.85rem;
+    color: #64748b;
+    margin: 0.5rem 0 1rem;
+    font-style: italic;
+}
+
+.shap-chart-container {
+    position: relative;
+    height: 280px;
+    width: 100%;
+}
+ /*  3D MOL     */
+.mol3d-block {
+    grid-column: 1 / -1;
+    margin-bottom: 8px;
+}
 /* HERO SECTION */
 .hero-section {
     min-height: 100vh;
@@ -2295,6 +2318,8 @@ a, button, input {
     font-size: 0.82rem;
     color: var(--text-muted);
 }
+
+
 
 /* FOOTER */
 .footer {

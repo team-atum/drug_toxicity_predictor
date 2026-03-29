@@ -6,6 +6,8 @@ import requests as http_requests
 from rdkit import Chem
 from rdkit.Chem import AllChem, Descriptors, rdMolDescriptors
 import os
+import shap
+
 
 app = Flask(__name__)
 CORS(app)
@@ -122,7 +124,19 @@ def load_model():
     else:
         print(f"WARNING: {MODEL_PATH} not found. Run train.py first.")
 
-
+def get_3d_molblock(mol):
+    try:
+        from rdkit.Chem import AllChem
+        mol3d = Chem.RWMol(mol)
+        mol3d = Chem.AddHs(mol3d)
+        result = AllChem.EmbedMolecule(mol3d, AllChem.ETKDGv3())
+        if result == -1:
+            AllChem.EmbedMolecule(mol3d, AllChem.ETKDG())
+        AllChem.MMFFOptimizeMolecule(mol3d)
+        mol3d = Chem.RemoveHs(mol3d)
+        return Chem.MolToMolBlock(mol3d)
+    except Exception:
+        return None
 def compute_features(smiles):
     mol = Chem.MolFromSmiles(smiles)
     if mol is None:
@@ -617,6 +631,57 @@ def run_single_prediction(smiles):
 
     is_toxic = prediction == 1
 
+    is_toxic = prediction == 1
+
+    # ── SHAP per-compound explanation ───────────────────────────
+    try:
+        explainer = shap.TreeExplainer(primary_model)
+        shap_vals = explainer.shap_values(X)[0]   # shape (2055,) — one value per feature
+
+        desc_names = [
+            'Molecular Weight', 'LogP (Lipophilicity)', 'H-Bond Donors',
+            'H-Bond Acceptors', 'TPSA', 'Rotatable Bonds', 'Aromatic Rings'
+        ]
+        desc_display = [
+            'MolWt', 'LogP', 'NumHDonors', 'NumHAcceptors',
+            'TPSA', 'NumRotatableBonds', 'NumAromaticRings'
+        ]
+
+        # SHAP values for the 7 descriptors (indices 2048 to 2054)
+        shap_descriptors = []
+        for i, name in enumerate(desc_names):
+            shap_descriptors.append({
+                'feature': desc_display[i],
+                'label': name,
+                'shap_value': round(float(shap_vals[2048 + i]), 4),
+                'feature_value': round(float(X[0][2048 + i]), 3),
+                'type': 'descriptor'
+            })
+
+        # Top 5 most impactful Morgan fingerprint bits
+        fp_shap = shap_vals[:2048]
+        top_fp_idx = np.argsort(np.abs(fp_shap))[-5:][::-1]
+        shap_fingerprints = []
+        for idx in top_fp_idx:
+            shap_fingerprints.append({
+                'feature': f'Morgan_bit_{idx}',
+                'label': f'Structural pattern #{idx}',
+                'shap_value': round(float(fp_shap[idx]), 4),
+                'feature_value': round(float(X[0][idx]), 3),
+                'type': 'fingerprint'
+            })
+
+        # Combine and sort by absolute SHAP value — most impactful first
+        all_shap = shap_descriptors + shap_fingerprints
+        shap_explanation = sorted(all_shap, key=lambda x: abs(x['shap_value']), reverse=True)[:8]
+
+        # Also compute overall SHAP summary for display
+        base_value = round(float(explainer.expected_value), 4)
+
+    except Exception as e:
+        shap_explanation = []
+        base_value = 0.0
+    # ────────────────────────────────────────────────────────────
     assay_models = model_data.get('assay_models', {})
     assay_results = {}
     toxic_assay_count = 0
@@ -660,9 +725,12 @@ def run_single_prediction(smiles):
         'is_toxic': is_toxic,
         'confidence': round(confidence, 1),
         'toxic_probability': round(toxic_prob, 1),
+        'mol_3d': get_3d_molblock(mol),    
         'assay_results': assay_results,
         'molecular_properties': mol_properties,
         'feature_importances': top_features,
+        'shap_explanation': shap_explanation,
+        'shap_base_value': base_value,
         'organ_toxicity': organ_toxicity,
         'toxicity_suggestions': suggestions,
         'physical_state_warning': physical_state,

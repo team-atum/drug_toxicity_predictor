@@ -6,3 +6,4 @@ pandas
 numpy
 rdkit-pypi
 joblib
+shap

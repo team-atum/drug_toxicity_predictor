@@ -343,6 +343,8 @@ function showError(message) {
 const predictBtn = document.getElementById('predictBtn');
 let importanceChartInstance = null;
 let assayChartInstance = null;
+let shapChartInstance = null;
+let mol3dViewer = null;
 
 predictBtn.addEventListener('click', handlePredict);
 smilesInput.addEventListener('keypress', (e) => {
@@ -455,6 +457,9 @@ function displayResults(data) {
     renderAssayChart(data.assay_results);
     renderOrganToxicity(data.organ_toxicity);
     renderSafetyPanel(data);
+    renderShapChart(data.shap_explanation, data.shap_base_value, data.is_toxic);
+    renderMol3D(data.mol_3d, data.is_toxic);
+
 
     if (data.model_info) {
         const statEl = document.getElementById('statAccuracy');
@@ -826,7 +831,146 @@ function renderImportanceChart(importances) {
         }
     });
 }
+function renderShapChart(shapData, baseVal, isToxic) {
+    const canvas = document.getElementById('shapChart');
+    if (!canvas || !shapData || shapData.length === 0) {
+        document.getElementById('shapDesc').textContent = 'SHAP explanation not available for this compound.';
+        return;
+    }
 
+    if (shapChartInstance) {
+        shapChartInstance.destroy();
+    }
+
+    const labels = shapData.map(d => d.label);
+    const values = shapData.map(d => d.shap_value);
+
+    const colors = values.map(v =>
+        v > 0
+        ? `rgba(239, 68, 68, ${Math.min(0.4 + Math.abs(v) * 8, 0.92)})`
+        : `rgba(34, 197, 94, ${Math.min(0.4 + Math.abs(v) * 8, 0.92)})`
+    );
+
+    const ctx = canvas.getContext('2d');
+    shapChartInstance = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'SHAP Value',
+                data: values,
+                backgroundColor: colors,
+                borderColor: colors.map(c => c.replace(/[\d.]+\)$/, '1)')),
+                borderWidth: 1,
+                borderRadius: 4,
+            }]
+        },
+        options: {
+            indexAxis: 'y',
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    backgroundColor: '#111827',
+                    titleColor: '#c9a84c',
+                    bodyColor: '#f0f0f0',
+                    borderColor: '#1e293b',
+                    borderWidth: 1,
+                    cornerRadius: 8,
+                    padding: 12,
+                    callbacks: {
+                        label: function(context) {
+                            const item = shapData[context.dataIndex];
+                            const direction = context.raw > 0 ? '▲ pushes TOXIC' : '▼ pushes SAFE';
+                            return [
+                                `SHAP: ${context.raw.toFixed(4)}  ${direction}`,
+                                `Actual value: ${item.feature_value}`,
+                                `Type: ${item.type}`
+                            ];
+                        }
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    title: {
+                        display: true,
+                        text: '← safer   |   SHAP value   |   more toxic →',
+                        color: '#64748b',
+                        font: { size: 11 }
+                    },
+                    grid: { color: 'rgba(30, 41, 59, 0.5)' },
+                    ticks: { color: '#64748b', font: { size: 11 } }
+                },
+                y: {
+                    grid: { display: false },
+                    ticks: { color: '#94a3b8', font: { size: 11 } }
+                }
+            },
+            animation: { duration: 1200, easing: 'easeOutQuart' }
+        }
+    });
+
+    // Update the description text below the header
+    const topFeature = shapData[0];
+    const direction = topFeature.shap_value > 0 ? 'increases' : 'decreases';
+    document.getElementById('shapDesc').textContent =
+        `Strongest driver: "${topFeature.label}" ${direction} toxicity probability. ` +
+        `Red bars = push toward toxic. Green bars = push toward safe. ` +
+        `Base model score: ${(baseVal || 0).toFixed(3)}.`;
+}
+function renderMol3D(molblock, isToxic) {
+    const block = document.getElementById('mol3dBlock');
+    const container = document.getElementById('mol3d-viewer');
+
+    if (!molblock || !window.$3Dmol) {
+        if (block) block.style.display = 'none';
+        return;
+    }
+
+    block.style.display = 'block';
+    container.innerHTML = '';   // clear previous
+
+    // Small delay to let the block become visible before sizing
+    setTimeout(() => {
+        const viewer = $3Dmol.createViewer(container, {
+            backgroundColor: '0x111827'
+        });
+
+        viewer.addModel(molblock, 'sdf');
+
+        // Ball and stick — Jmol coloring (industry standard)
+        viewer.setStyle({}, {
+            stick: {
+                radius: 0.15,
+                colorscheme: 'Jmol'
+            },
+            sphere: {
+                scale: 0.28,
+                colorscheme: 'Jmol'
+            }
+        });
+
+        // If toxic — highlight nitrogen & oxygen atoms in vivid colors
+        if (isToxic) {
+            viewer.setStyle({ elem: 'N' }, {
+                sphere: { color: '#4488ff', scale: 0.35 },
+                stick: { radius: 0.17, color: '#4488ff' }
+            });
+            viewer.setStyle({ elem: 'O' }, {
+                sphere: { color: '#ff4444', scale: 0.35 },
+                stick: { radius: 0.17, color: '#ff4444' }
+            });
+        }
+
+        viewer.zoomTo();
+        viewer.spin('y', 1);    // auto-rotate on Y axis
+        viewer.render();
+
+        mol3dViewer = viewer;
+    }, 150);
+}
 function renderAssayChart(assayResults) {
     const ctx = document.getElementById('assayChart').getContext('2d');
 
@@ -1199,7 +1343,7 @@ downloadBulkResults.addEventListener('click', () => {
 // ==================== PDF REPORT GENERATION ====================
 document.getElementById('downloadPdfBtn').addEventListener('click', generatePDFReport);
 
-function generatePDFReport() {
+async function generatePDFReport() {
     if (!lastPredictionData) return;
 
     const { jsPDF } = window.jspdf;
@@ -1487,7 +1631,126 @@ function generatePDFReport() {
             doc.setFontSize(9);
         });
     }
+    // ── SHAP EXPLANATION SECTION ──────────────────────────────
+    if (data.shap_explanation && data.shap_explanation.length > 0) {
+        checkPageBreak(90);
+        doc.setTextColor(201, 168, 76);
+        doc.setFontSize(14);
+        doc.setFont('helvetica', 'bold');
+        doc.text('SHAP Explanation — Why This Prediction?', margin, y);
+        y += 8;
+        doc.setDrawColor(201, 168, 76);
+        doc.line(margin, y, pageWidth - margin, y);
+        y += 6;
 
+        // Description line
+        const topFeature = data.shap_explanation[0];
+        const direction = topFeature.shap_value > 0 ? 'increases' : 'decreases';
+        doc.setTextColor(148, 163, 184);
+        doc.setFontSize(8);
+        doc.setFont('helvetica', 'italic');
+        const shapDesc = `Strongest driver: "${topFeature.label}" ${direction} toxicity. Red = pushes toxic, Green = pushes safe. Base score: ${(data.shap_base_value || 0).toFixed(3)}`;
+        const shapDescLines = doc.splitTextToSize(shapDesc, contentWidth);
+        doc.text(shapDescLines, margin, y);
+        y += shapDescLines.length * 4 + 4;
+
+        // Embed SHAP chart as image if available
+        if (shapChartInstance) {
+            try {
+                const shapImgData = shapChartInstance.toBase64Image('image/png', 1.0);
+                const imgH = 65;
+                checkPageBreak(imgH + 5);
+                doc.addImage(shapImgData, 'PNG', margin, y, contentWidth, imgH);
+                y += imgH + 4;
+            } catch(e) {
+                // Fallback: draw SHAP as text bars if image fails
+                doc.setFontSize(8);
+                doc.setFont('helvetica', 'normal');
+                data.shap_explanation.forEach(item => {
+                    checkPageBreak(8);
+                    const label = item.label.substring(0, 28);
+                    doc.setTextColor(200, 200, 200);
+                    doc.text(label, margin + 3, y);
+
+                    const maxBarW = contentWidth * 0.45;
+                    const barW = Math.min(Math.abs(item.shap_value) * 80, maxBarW);
+                    if (item.shap_value > 0) {
+                        doc.setFillColor(239, 68, 68);
+                    } else {
+                        doc.setFillColor(34, 197, 94);
+                    }
+                    doc.roundedRect(margin + 75, y - 3, barW, 5, 1, 1, 'F');
+
+                    doc.setTextColor(148, 163, 184);
+                    doc.text(`${item.shap_value > 0 ? '+' : ''}${item.shap_value.toFixed(4)}`, margin + 78 + barW, y);
+                    y += 7;
+                });
+            }
+        }
+        y += 5;
+    }
+
+    // ── 3D MOLECULAR STRUCTURE SNAPSHOT ──────────────────────
+    if (mol3dViewer) {
+        try {
+            // Stop rotation temporarily for a clean snapshot
+            mol3dViewer.spin(false);
+
+            const mol3dImgData = await new Promise((resolve, reject) => {
+                try {
+                    // pngURI returns the canvas as base64 PNG
+                    const uri = mol3dViewer.pngURI(3);
+                    resolve(uri);
+                } catch(e) {
+                    reject(e);
+                }
+            });
+
+            checkPageBreak(110);
+            doc.setTextColor(201, 168, 76);
+            doc.setFontSize(14);
+            doc.setFont('helvetica', 'bold');
+            doc.text('3D Molecular Structure', margin, y);
+            y += 8;
+            doc.setDrawColor(201, 168, 76);
+            doc.line(margin, y, pageWidth - margin, y);
+            y += 6;
+
+            doc.setTextColor(148, 163, 184);
+            doc.setFontSize(8);
+            doc.setFont('helvetica', 'italic');
+            doc.text('Ball & stick model — Jmol coloring (C=grey, O=red, N=blue, S=yellow)', margin, y);
+            y += 6;
+
+            // Center the 3D image on the page
+            // Full width, tall image — no compression
+            const imgW = contentWidth;       // full page width
+            const imgH = 120;                // taller
+            const imgX = margin;
+
+            // Dark background box
+            doc.setFillColor(17, 24, 39);
+            doc.roundedRect(imgX - 2, y - 2, imgW + 4, imgH + 4, 4, 4, 'F');
+
+            doc.addImage(mol3dImgData, 'PNG', imgX, y, imgW, imgH, '', 'FAST');
+            y += imgH + 10;
+            doc.setTextColor(100, 116, 139);
+            doc.setFontSize(7);
+            doc.setFont('helvetica', 'italic');
+            doc.text('For interactive 3D rotation, open this compound in the ATUM web application.', margin, y - 4, { align: 'left' });
+
+            // Restart rotation after snapshot
+            mol3dViewer.spin('y', 1);
+
+        } catch(e) {
+            // If 3D snapshot fails, just note it
+            doc.setTextColor(148, 163, 184);
+            doc.setFontSize(8);
+            doc.text('3D structure snapshot unavailable for this compound.', margin, y);
+            y += 8;
+        }
+    }
+    // ──────────────────────────────────────────────────────────
     checkPageBreak(25);
     y += 5;
     doc.setFillColor(201, 168, 76);
