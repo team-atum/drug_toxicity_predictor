@@ -28,7 +28,7 @@
                 <li><a href="#predict" class="nav-link">Predict</a></li>
                 <li><a href="#bulk" class="nav-link">Bulk Analysis</a></li>
                 <li><a href="#results" class="nav-link">Results</a></li>
-                <li><a href="#about" class="nav-link">About</a></li>
+                <li><a href="about.html" class="nav-link">About</a></li>
             </ul>
             <div class="nav-hamburger" id="hamburger">
                 <span></span><span></span><span></span>
@@ -282,8 +282,8 @@
                         </div>
                     </div>
                     <button class="btn btn-primary btn-sm" id="downloadBulkResults">
-                        <i class="fas fa-file-export"></i>
-                        Download Results CSV
+                        <i class="fas fa-file-pdf"></i>
+                        Download Results PDF
                     </button>
                 </div>
 
@@ -437,80 +437,6 @@
                     <p class="shap-desc" id="shapDesc"></p>
                     <div class="shap-chart-container">
                         <canvas id="shapChart"></canvas>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <section class="about-section" id="about">
-        <div class="section-container">
-            <div class="section-header">
-                <span class="section-tag"><i class="fas fa-users"></i> About</span>
-                <h2 class="section-title">About the Project</h2>
-                <p class="section-desc">Built with cutting-edge ML techniques for accurate drug toxicity assessment</p>
-            </div>
-
-            <div class="about-grid">
-                <div class="about-card tech-card">
-                    <div class="about-card-icon"><i class="fas fa-brain"></i></div>
-                    <h3>XGBoost Model</h3>
-                    <p>Gradient-boosted decision tree ensemble trained with optimized hyperparameters and class imbalance handling via scale_pos_weight for robust toxicity classification.</p>
-                </div>
-                <div class="about-card tech-card">
-                    <div class="about-card-icon"><i class="fas fa-database"></i></div>
-                    <h3>Tox21 Dataset</h3>
-                    <p>NIH Tox21 challenge dataset containing ~8,000 compounds tested across 12 biological assays covering nuclear receptor and stress response pathways.</p>
-                </div>
-                <div class="about-card tech-card">
-                    <div class="about-card-icon"><i class="fas fa-fingerprint"></i></div>
-                    <h3>Molecular Features</h3>
-                    <p>2048-bit Morgan circular fingerprints (ECFP4) combined with 7 physicochemical descriptors computed via RDKit for comprehensive molecular representation.</p>
-                </div>
-                <div class="about-card tech-card">
-                    <div class="about-card-icon"><i class="fas fa-server"></i></div>
-                    <h3>Flask API</h3>
-                    <p>RESTful backend serving real-time predictions with RDKit molecular parsing, descriptor computation, and multi-assay inference in a single API call.</p>
-                </div>
-            </div>
-
-            <div class="team-section">
-                <h3 class="team-title">
-                    <span class="team-icon"><i class="fas fa-atom"></i></span>
-                    Team ATUM
-                </h3>
-                <div class="team-grid">
-                    <div class="team-card">
-                        <div class="team-avatar">
-                            <i class="fas fa-user-astronaut"></i>
-                        </div>
-                        <h4>Member 1</h4>
-                        <span class="team-role">ML Engineer</span>
-                        <p>Model architecture & training pipeline</p>
-                    </div>
-                    <div class="team-card">
-                        <div class="team-avatar">
-                            <i class="fas fa-user-ninja"></i>
-                        </div>
-                        <h4>Member 2</h4>
-                        <span class="team-role">Backend Developer</span>
-                        <p>Flask API & RDKit integration</p>
-                    </div>
-                    <div class="team-card">
-                        <div class="team-avatar">
-                            <i class="fas fa-user-secret"></i>
-                        </div>
-                        <h4>Member 3</h4>
-                        <span class="team-role">Frontend Developer</span>
-                        <p>UI/UX design & visualization</p>
-                    </div>
-                    <div class="team-card">
-                        <div class="team-avatar">
-                            <i class="fas fa-user-graduate"></i>
-                        </div>
-                        <h4>Member 4</h4>
-                        <span class="team-role">Data Scientist</span>
-                        <p>Feature engineering & analysis</p>
                     </div>
                 </div>
             </div>

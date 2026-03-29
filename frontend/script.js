@@ -1321,25 +1321,368 @@ function viewBulkDetail(index) {
 }
 
 // ==================== DOWNLOAD BULK RESULTS CSV ====================
+// ==================== DOWNLOAD BULK RESULTS PDF ====================
 downloadBulkResults.addEventListener('click', () => {
     if (bulkResultsData.length === 0) return;
-
-    let csv = 'Index,Compound,SMILES,Prediction,Confidence,Toxic_Probability,MolWt,LogP,NumHDonors,NumHAcceptors,TPSA,NumRotatableBonds,NumAromaticRings,Active_Assays\n';
-
-    bulkResultsData.forEach((result, i) => {
-        const compoundName = bulkParsedSmiles[result.index] ? bulkParsedSmiles[result.index].name : `Compound ${result.index + 1}`;
-        const props = result.molecular_properties || {};
-        const toxicAssays = Object.entries(result.assay_results || {})
-            .filter(([_, v]) => v.toxic)
-            .map(([k, _]) => k)
-            .join('; ');
-
-        csv += `${i + 1},"${compoundName}","${result.smiles}",${result.prediction},${result.confidence},${result.toxic_probability},${props.MolWt || ''},${props.LogP || ''},${props.NumHDonors || ''},${props.NumHAcceptors || ''},${props.TPSA || ''},${props.NumRotatableBonds || ''},${props.NumAromaticRings || ''},"${toxicAssays}"\n`;
-    });
-
-    downloadFile('bulk_toxicity_results.csv', csv, 'text/csv');
+    generateBulkPDFReport();
 });
 
+function generateBulkPDFReport() {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF('p', 'mm', 'a4');
+    const pageWidth = 210;
+    const margin = 20;
+    const contentWidth = pageWidth - 2 * margin;
+    let y = 20;
+
+    function addPage() {
+        // Gold footer on every page
+        doc.setFillColor(201, 168, 76);
+        doc.rect(0, 285, 210, 12, 'F');
+        doc.setTextColor(0, 0, 0);
+        doc.setFontSize(7);
+        doc.setFont('helvetica', 'normal');
+        doc.text('ATUM — Drug Toxicity Prediction | Bulk Analysis Report', pageWidth / 2, 291, { align: 'center' });
+        doc.addPage();
+        doc.setFillColor(5, 7, 10);
+        doc.rect(0, 0, 210, 297, 'F');
+        y = 20;
+    }
+
+    function checkPageBreak(needed) {
+        if (y + needed > 278) addPage();
+    }
+
+    function sectionTitle(title) {
+        checkPageBreak(18);
+        doc.setTextColor(201, 168, 76);
+        doc.setFontSize(13);
+        doc.setFont('helvetica', 'bold');
+        doc.text(title, margin, y);
+        y += 6;
+        doc.setDrawColor(201, 168, 76);
+        doc.setLineWidth(0.4);
+        doc.line(margin, y, pageWidth - margin, y);
+        y += 7;
+    }
+
+    // ── PAGE 1 BACKGROUND ───────────────────────────────────
+    doc.setFillColor(5, 7, 10);
+    doc.rect(0, 0, 210, 297, 'F');
+
+    // ── HEADER BAR ──────────────────────────────────────────
+    doc.setFillColor(201, 168, 76);
+    doc.rect(0, 0, 210, 42, 'F');
+
+    doc.setTextColor(0, 0, 0);
+    doc.setFontSize(22);
+    doc.setFont('helvetica', 'bold');
+    doc.text('ATUM', margin, y + 8);
+
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'normal');
+    doc.text('Bulk Drug Toxicity Analysis Report', margin, y + 16);
+
+    doc.setFontSize(7);
+    doc.text(`Generated: ${new Date().toLocaleString()}`, pageWidth - margin, y + 8, { align: 'right' });
+    doc.text(`Total compounds analysed: ${bulkResultsData.length}`, pageWidth - margin, y + 14, { align: 'right' });
+    y = 52;
+
+    // ── SUMMARY BOX ─────────────────────────────────────────
+    const toxicCount  = bulkResultsData.filter(r => r.is_toxic).length;
+    const safeCount   = bulkResultsData.filter(r => !r.is_toxic).length;
+    const toxicPct    = ((toxicCount / bulkResultsData.length) * 100).toFixed(1);
+
+    doc.setFillColor(17, 24, 39);
+    doc.roundedRect(margin, y, contentWidth, 28, 4, 4, 'F');
+
+    // Toxic pill
+    doc.setFillColor(60, 20, 20);
+    doc.roundedRect(margin + 4, y + 5, 48, 18, 3, 3, 'F');
+    doc.setTextColor(239, 68, 68);
+    doc.setFontSize(16);
+    doc.setFont('helvetica', 'bold');
+    doc.text(`${toxicCount}`, margin + 28, y + 16, { align: 'center' });
+    doc.setFontSize(7);
+    doc.setFont('helvetica', 'normal');
+    doc.text('TOXIC', margin + 28, y + 21, { align: 'center' });
+
+    // Safe pill
+    doc.setFillColor(20, 60, 30);
+    doc.roundedRect(margin + 58, y + 5, 48, 18, 3, 3, 'F');
+    doc.setTextColor(34, 197, 94);
+    doc.setFontSize(16);
+    doc.setFont('helvetica', 'bold');
+    doc.text(`${safeCount}`, margin + 82, y + 16, { align: 'center' });
+    doc.setFontSize(7);
+    doc.setFont('helvetica', 'normal');
+    doc.text('SAFE', margin + 82, y + 21, { align: 'center' });
+
+    // Toxic % text
+    doc.setTextColor(200, 200, 200);
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'normal');
+    doc.text(`${toxicPct}% of compounds flagged as toxic`, margin + 115, y + 14);
+
+    y += 36;
+
+    // ── RESULTS TABLE ────────────────────────────────────────
+    // ── RESULTS TABLE ────────────────────────────────────────
+    sectionTitle('Compound Results');
+
+    // Table header
+    doc.setFillColor(30, 41, 59);
+    doc.roundedRect(margin, y, contentWidth, 8, 1, 1, 'F');
+    doc.setTextColor(201, 168, 76);
+    doc.setFontSize(7.5);
+    doc.setFont('helvetica', 'bold');
+    doc.text('#',          margin + 2,   y + 5.5);
+    doc.text('Compound',   margin + 10,  y + 5.5);
+    doc.text('SMILES',     margin + 55,  y + 5.5);
+    doc.text('Result',     margin + 112, y + 5.5);
+    doc.text('Conf%',      margin + 133, y + 5.5);
+    doc.text('Tox Prob%',  margin + 151, y + 5.5);
+    y += 10;
+
+    bulkResultsData.forEach((result, i) => {
+        checkPageBreak(9);
+
+        const compoundName = (bulkParsedSmiles[result.index] && bulkParsedSmiles[result.index].name)
+            ? bulkParsedSmiles[result.index].name.substring(0, 22)
+            : `Compound ${result.index + 1}`;
+
+        const smilesTrunc = result.smiles.length > 32
+            ? result.smiles.substring(0, 29) + '...'
+            : result.smiles;
+
+        if (i % 2 === 0) {
+            doc.setFillColor(15, 21, 32);
+            doc.rect(margin, y - 2, contentWidth, 8, 'F');
+        }
+
+        doc.setFontSize(7);
+        doc.setFont('helvetica', 'normal');
+
+        // Row number
+        doc.setTextColor(100, 116, 139);
+        doc.text(`${i + 1}`, margin + 2, y + 3.5);
+
+        // Compound name — coloured by result
+        if (result.is_toxic) doc.setTextColor(239, 100, 100);
+        else doc.setTextColor(100, 200, 120);
+        doc.text(compoundName, margin + 10, y + 3.5);
+
+        // SMILES
+        doc.setTextColor(148, 163, 184);
+        doc.text(smilesTrunc, margin + 55, y + 3.5);
+
+        // Result badge
+        if (result.is_toxic) {
+            doc.setTextColor(239, 68, 68);
+        } else {
+            doc.setTextColor(34, 197, 94);
+        }
+        doc.setFont('helvetica', 'bold');
+        doc.text(result.prediction.toUpperCase(), margin + 112, y + 3.5);
+
+        // Numbers
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(180, 180, 180);
+        doc.text(`${result.confidence}%`,       margin + 133, y + 3.5);
+        doc.text(`${result.toxic_probability}%`, margin + 151, y + 3.5);
+
+        y += 8;
+    });
+    y += 8;
+
+    // ── ACTIVE ASSAYS DETAIL ─────────────────────────────────
+    sectionTitle('Active Assay Details Per Compound');
+
+    doc.setTextColor(100, 116, 139);
+    doc.setFontSize(7.5);
+    doc.setFont('helvetica', 'italic');
+    doc.text('Only compounds with at least one active toxic assay are listed below.', margin, y);
+    y += 8;
+
+    const toxicResults = bulkResultsData.filter(result => {
+        const activeAssays = Object.entries(result.assay_results || {})
+            .filter(([_, v]) => v.toxic);
+        return activeAssays.length > 0;
+    });
+
+    if (toxicResults.length === 0) {
+        doc.setTextColor(34, 197, 94);
+        doc.setFontSize(8);
+        doc.text('No compounds had active toxic assays.', margin, y);
+        y += 10;
+    } else {
+        toxicResults.forEach((result, i) => {
+            const compoundName = (bulkParsedSmiles[result.index] && bulkParsedSmiles[result.index].name)
+                ? bulkParsedSmiles[result.index].name
+                : `Compound ${result.index + 1}`;
+
+            const activeAssays = Object.entries(result.assay_results || {})
+                .filter(([_, v]) => v.toxic);
+
+            // Estimate height: name row (8) + ceil(assays/4) rows of tags (7 each) + gap (4)
+            const tagRows = Math.ceil(activeAssays.length / 4);
+            const blockH = 8 + tagRows * 7 + 6;
+            checkPageBreak(blockH);
+
+            // Compound name row
+            doc.setFillColor(17, 24, 39);
+            doc.roundedRect(margin, y, contentWidth, 7, 2, 2, 'F');
+            doc.setFontSize(7.5);
+            doc.setFont('helvetica', 'bold');
+            doc.setTextColor(239, 68, 68);
+            doc.text(`${i + 1}. ${compoundName}`, margin + 3, y + 5);
+            doc.setFont('helvetica', 'normal');
+            doc.setTextColor(148, 163, 184);
+            doc.text(`${activeAssays.length} active assay${activeAssays.length > 1 ? 's' : ''}`, pageWidth - margin - 2, y + 5, { align: 'right' });
+            y += 9;
+
+            // Assay tags — 4 per row
+            const tagW = (contentWidth - 6) / 4;
+            activeAssays.forEach(([assayName, assayData], j) => {
+                const col = j % 4;
+                const xTag = margin + 3 + col * (tagW + 2);
+
+                if (col === 0 && j > 0) y += 7;
+
+                // Tag background
+                doc.setFillColor(60, 20, 20);
+                doc.roundedRect(xTag, y - 1, tagW, 6, 1, 1, 'F');
+
+                // Assay name
+                doc.setFontSize(6.5);
+                doc.setFont('helvetica', 'bold');
+                doc.setTextColor(239, 100, 100);
+                const tagLabel = assayName.length > 14 ? assayName.substring(0, 13) + '…' : assayName;
+                doc.text(tagLabel, xTag + tagW / 2, y + 3, { align: 'center' });
+
+                // Probability
+                doc.setFont('helvetica', 'normal');
+                doc.setTextColor(200, 140, 140);
+                doc.text(`${assayData.probability}%`, xTag + tagW - 1, y + 3, { align: 'right' });
+            });
+
+            y += 10;
+        });
+    }
+    y += 4;
+    
+    // ── MOLECULAR PROPERTIES TABLE ───────────────────────────
+    sectionTitle('Molecular Properties Summary');
+
+    // Header
+    doc.setFillColor(30, 41, 59);
+    doc.roundedRect(margin, y, contentWidth, 8, 1, 1, 'F');
+    doc.setTextColor(201, 168, 76);
+    doc.setFontSize(7.5);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Compound',  margin + 2,  y + 5.5);
+    doc.text('MolWt',     margin + 48, y + 5.5);
+    doc.text('LogP',      margin + 68, y + 5.5);
+    doc.text('HDon',      margin + 84, y + 5.5);
+    doc.text('HAcc',      margin + 100, y + 5.5);
+    doc.text('TPSA',      margin + 116, y + 5.5);
+    doc.text('RotBonds',  margin + 134, y + 5.5);
+    doc.text('AromRings', margin + 154, y + 5.5);
+    y += 10;
+
+    bulkResultsData.forEach((result, i) => {
+        checkPageBreak(9);
+        const compoundName = (bulkParsedSmiles[result.index] && bulkParsedSmiles[result.index].name)
+            ? bulkParsedSmiles[result.index].name.substring(0, 18)
+            : `Compound ${result.index + 1}`;
+        const p = result.molecular_properties || {};
+
+        if (i % 2 === 0) {
+            doc.setFillColor(15, 21, 32);
+            doc.rect(margin, y - 2, contentWidth, 8, 'F');
+        }
+
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(7);
+
+        if (result.is_toxic) doc.setTextColor(239, 100, 100);
+        else doc.setTextColor(100, 200, 120);
+        doc.text(compoundName,          margin + 2,   y + 3.5);
+
+        doc.setTextColor(180, 180, 180);
+        doc.text(`${p.MolWt || '-'}`,           margin + 48,  y + 3.5);
+        doc.text(`${p.LogP || '-'}`,            margin + 68,  y + 3.5);
+        doc.text(`${p.NumHDonors || '-'}`,      margin + 84,  y + 3.5);
+        doc.text(`${p.NumHAcceptors || '-'}`,   margin + 100, y + 3.5);
+        doc.text(`${p.TPSA || '-'}`,            margin + 116, y + 3.5);
+        doc.text(`${p.NumRotatableBonds || '-'}`, margin + 134, y + 3.5);
+        doc.text(`${p.NumAromaticRings || '-'}`,  margin + 154, y + 3.5);
+        y += 8;
+    });
+    y += 6;
+
+    // ── ORGAN TOXICITY RISK SUMMARY ──────────────────────────
+    sectionTitle('Organ Toxicity Risk — Across All Compounds');
+
+    const organCounts = {};
+    bulkResultsData.forEach(result => {
+        if (!result.organ_toxicity) return;
+        Object.entries(result.organ_toxicity).forEach(([organ, data]) => {
+            if (data.risk_level === 'high' || data.risk_level === 'medium') {
+                organCounts[organ] = (organCounts[organ] || 0) + 1;
+            }
+        });
+    });
+
+    if (Object.keys(organCounts).length === 0) {
+        doc.setTextColor(148, 163, 184);
+        doc.setFontSize(8);
+        doc.text('No significant organ toxicity detected across compounds.', margin, y);
+        y += 10;
+    } else {
+        const sortedOrgans = Object.entries(organCounts).sort((a, b) => b[1] - a[1]);
+        const maxCount = sortedOrgans[0][1];
+
+        sortedOrgans.forEach(([organ, count]) => {
+            checkPageBreak(8);
+            const barW = Math.max((count / maxCount) * (contentWidth * 0.55), 4);
+            const pct = ((count / bulkResultsData.length) * 100).toFixed(0);
+            const label = organ.charAt(0).toUpperCase() + organ.slice(1);
+
+            doc.setTextColor(180, 180, 180);
+            doc.setFontSize(7.5);
+            doc.setFont('helvetica', 'normal');
+            doc.text(label, margin + 2, y + 3.5);
+
+            const intensity = Math.min(count / maxCount, 1);
+            const r = Math.round(239 * intensity + 148 * (1 - intensity));
+            const g = Math.round(68  * intensity + 163 * (1 - intensity));
+            const b = Math.round(68  * intensity + 184 * (1 - intensity));
+            doc.setFillColor(r, g, b);
+            doc.roundedRect(margin + 40, y, barW, 6, 1, 1, 'F');
+
+            doc.setTextColor(148, 163, 184);
+            doc.text(`${count} compounds (${pct}%)`, margin + 44 + barW, y + 4.5);
+            y += 9;
+        });
+        y += 4;
+    }
+
+    // ── FOOTER ON LAST PAGE ──────────────────────────────────
+    checkPageBreak(20);
+    y += 4;
+    doc.setFillColor(201, 168, 76);
+    doc.rect(0, y, 210, 16, 'F');
+    doc.setTextColor(0, 0, 0);
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'bold');
+    doc.text('ATUM — Drug Toxicity Prediction', pageWidth / 2, y + 7, { align: 'center' });
+    doc.setFontSize(6.5);
+    doc.setFont('helvetica', 'normal');
+    doc.text('Powered by XGBoost, RDKit & Tox21 Dataset | Hackathon 2024', pageWidth / 2, y + 12, { align: 'center' });
+
+    doc.save(`ATUM_Bulk_Report_${bulkResultsData.length}_compounds.pdf`);
+}
 // ==================== PDF REPORT GENERATION ====================
 document.getElementById('downloadPdfBtn').addEventListener('click', generatePDFReport);
 
