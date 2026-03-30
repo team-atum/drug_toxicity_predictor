@@ -1366,7 +1366,6 @@ function viewBulkDetail(index) {
     }
 }
 
-// ==================== DOWNLOAD BULK RESULTS CSV ====================
 // ==================== DOWNLOAD BULK RESULTS PDF ====================
 downloadBulkResults.addEventListener('click', () => {
     if (bulkResultsData.length === 0) return;
@@ -2043,7 +2042,7 @@ async function generatePDFReport() {
         doc.text(shapDescLines, margin, y);
         y += shapDescLines.length * 4 + 4;
 
-        // Embed SHAP chart as image if available
+        
         if (shapChartInstance) {
             try {
                 const shapImgData = shapChartInstance.toBase64Image('image/png', 1.0);
@@ -2082,12 +2081,11 @@ async function generatePDFReport() {
     // ── 3D MOLECULAR STRUCTURE SNAPSHOT ──────────────────────
     if (mol3dViewer) {
         try {
-            // Stop rotation temporarily for a clean snapshot
+            
             mol3dViewer.spin(false);
 
             const mol3dImgData = await new Promise((resolve, reject) => {
                 try {
-                    // pngURI returns the canvas as base64 PNG
                     const uri = mol3dViewer.pngURI(3);
                     resolve(uri);
                 } catch(e) {
@@ -2111,13 +2109,11 @@ async function generatePDFReport() {
             doc.text('Ball & stick model — Jmol coloring (C=grey, O=red, N=blue, S=yellow)', margin, y);
             y += 6;
 
-            // Center the 3D image on the page
-            // Full width, tall image — no compression
-            const imgW = contentWidth;       // full page width
-            const imgH = 120;                // taller
+            
+            const imgW = contentWidth;       
+            const imgH = 120;                
             const imgX = margin;
 
-            // Dark background box
             doc.setFillColor(17, 24, 39);
             doc.roundedRect(imgX - 2, y - 2, imgW + 4, imgH + 4, 4, 4, 'F');
 
@@ -2128,11 +2124,11 @@ async function generatePDFReport() {
             doc.setFont('helvetica', 'italic');
             doc.text('For interactive 3D rotation, open this compound in the ATUM web application.', margin, y - 4, { align: 'left' });
 
-            // Restart rotation after snapshot
+            
             mol3dViewer.spin('y', 1);
 
         } catch(e) {
-            // If 3D snapshot fails, just note it
+            
             doc.setTextColor(148, 163, 184);
             doc.setFontSize(8);
             doc.text('3D structure snapshot unavailable for this compound.', margin, y);

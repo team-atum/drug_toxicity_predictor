@@ -623,8 +623,8 @@
             .pipeline { flex-direction: column; align-items: center; gap: 24px; }
             .pipeline-step:not(:last-child)::after { display: none; }
         }
-/* ===== BREAKING BAD ATMOSPHERE (about.css) ===== */
-body::before {
+
+        body::before {
     content: '';
     position: fixed;
     inset: 0;

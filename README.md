@@ -132,4 +132,4 @@ Trained on the **NIH Tox21 dataset**:
 
 ---
 
-*Built with ❤️ at CodeCure AI Hackathon*
+*Built with ❤️ for CodeCure AI Hackathon*
