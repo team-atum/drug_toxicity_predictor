@@ -1,4 +1,3 @@
-```markdown
 # 🧪 ATUM — Drug Toxicity Predictor
 
 > An AI-powered drug toxicity prediction system built for **CodeCure AI Hackathon**.
@@ -62,7 +61,6 @@ When evaluating ATUM, try these pre-rehearsed test molecules to see the system's
 
 ## ⚙️ Technical Workflow
 
-```text
 User Input (SMILES String)
         ↓
 RDKit Processing
@@ -78,7 +76,6 @@ Organ-level Risk Mapping
   (Liver / Kidney / Heart / Brain / Hormones)
         ↓
 Output: Safety Profile + Feature Importance (SHAP) + PDF Report
-```
 
 ---
 
@@ -102,19 +99,17 @@ Output: Safety Profile + Feature Importance (SHAP) + PDF Report
 
 ### Setup
 
-```bash
-# Clone the repository
-git clone [https://github.com/team-atum/drug_toxicity_predictor.git](https://github.com/team-atum/drug_toxicity_predictor.git)
+**Clone the repository**
+`git clone [https://github.com/team-atum/drug_toxicity_predictor.git](https://github.com/team-atum/drug_toxicity_predictor.git)`
 
-# Navigate to backend
-cd drug_toxicity_predictor/backend
+**Navigate to backend**
+`cd drug_toxicity_predictor/backend`
 
-# Install dependencies
-pip install -r requirements.txt
+**Install dependencies**
+`pip install -r requirements.txt`
 
-# Start the server (pre-trained model included — no training needed!)
-python app.py
-```
+**Start the server (pre-trained model included — no training needed!)**
+`python app.py`
 
 Then open your browser at **http://localhost:5000**
 
@@ -122,7 +117,6 @@ Then open your browser at **http://localhost:5000**
 
 ## 🗂 Project Structure
 
-```text
 drug_toxicity_predictor/
 ├── backend/
 │   ├── app.py              # Flask REST API
@@ -134,7 +128,6 @@ drug_toxicity_predictor/
     ├── index.html          # Main UI
     ├── style.css           # Styling
     └── script.js           # Frontend logic & visualizations
-```
 
 ---
 
@@ -148,4 +141,3 @@ Trained on the **NIH Tox21 dataset**:
 ---
 
 *Built with ❤️ for CodeCure AI Hackathon*
-```
