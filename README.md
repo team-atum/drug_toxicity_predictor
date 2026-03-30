@@ -93,43 +93,54 @@ Output: Safety Profile + Feature Importance (SHAP) + PDF Report
 
 ## 🚀 How to Run
 
-### Prerequisites
-- Python 3.8+
-- pip
+**Prerequisites**
+* Python 3.8+
+* `pip` (Python package manager)
 
-### Setup
+**Step-by-Step Guide**
 
-**Clone the repository**
-`git clone [https://github.com/team-atum/drug_toxicity_predictor.git](https://github.com/team-atum/drug_toxicity_predictor.git)`
+1. **Clone the repository**
+   ```bash
+   git clone https://github.com/team-atum/drug_toxicity_predictor.git
+   ```
 
-**Navigate to backend**
-`cd drug_toxicity_predictor/backend`
+2. **Navigate to the backend directory**
+   ```bash
+   cd drug_toxicity_predictor/backend
+   ```
 
-**Install dependencies**
-`pip install -r requirements.txt`
+3. **Install the required dependencies**
+   ```bash
+   pip install -r requirements.txt
+   ```
 
-**Start the server (pre-trained model included — no training needed!)**
-`python app.py`
+4. **Start the Flask server** *(Note: The pre-trained XGBoost model is already included, so no training is necessary to run the app)*
+   ```bash
+   python app.py
+   ```
 
-Then open your browser at **http://localhost:5000**
+5. **Access the platform**
+   Open your web browser and go to `http://localhost:5000`
 
 ---
 
-## 🗂 Project Structure
+### 🗂️ Project Structure
 
+```text
 drug_toxicity_predictor/
+│
 ├── backend/
-│   ├── app.py              # Flask REST API
-│   ├── train.py            # Model training script
-│   ├── model.pkl           # Pre-trained XGBoost model
-│   ├── requirements.txt    # Python dependencies
-│   └── data/               # Tox21 dataset
+│   ├── app.py              # Main Flask REST API application
+│   ├── train.py            # Model training script for the XGBoost classifiers
+│   ├── model.pkl           # Pre-trained XGBoost model files
+│   ├── requirements.txt    # List of Python dependencies (RDKit, Flask, SHAP, etc.)
+│   └── data/               # Directory containing the NIH Tox21 dataset
+│
 └── frontend/
-    ├── index.html          # Main UI
-    ├── style.css           # Styling
-    └── script.js           # Frontend logic & visualizations
-
----
+    ├── index.html          # Main user interface and layout
+    ├── style.css           # Custom styling and animations
+    └── script.js           # Frontend logic, API calls, and visualizations (3Dmol.js, Chart.js)
+```
 
 ## 🔬 Dataset
 
