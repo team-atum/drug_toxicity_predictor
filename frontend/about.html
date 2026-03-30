@@ -12,24 +12,29 @@
     </style>
 </head>
 <body>
+    <div id="spiritBadge">⚗ SPIRIT 2026 &middot; IIT(BHU)</div>
     <div class="custom-cursor" id="cursor"></div>
     <div class="cursor-follower" id="cursorFollower"></div>
 
     <!-- NAVBAR -->
-    <nav class="navbar">
-        <div class="nav-container">
-            <a href="index.html" class="nav-logo">
-                <span class="logo-icon"><i class="fas fa-atom"></i></span>
-                <span>ATUM</span>
-            </a>
-            <ul class="nav-links">
-                <li><a href="index.html" class="nav-link">Home</a></li>
-                <li><a href="index.html#predict" class="nav-link">Predict</a></li>
-                <li><a href="index.html#bulk" class="nav-link">Bulk Analysis</a></li>
-                <li><a href="about.html" class="nav-link active">About</a></li>
-            </ul>
+<nav class="navbar" id="navbar">
+    <div class="nav-container">
+        <a href="index.html" class="nav-logo">
+            <span class="logo-icon"><i class="fas fa-atom"></i></span>
+            <span class="logo-text">ATUM</span>
+        </a>
+        <ul class="nav-links">
+            <li><a href="index.html" class="nav-link">Home</a></li>
+            <li><a href="index.html#predict" class="nav-link">Predict</a></li>
+            <li><a href="index.html#bulk" class="nav-link">Bulk Analysis</a></li>
+            <li><a href="index.html#results" class="nav-link">Results</a></li>
+            <li><a href="about.html" class="nav-link active">About</a></li>
+        </ul>
+        <div class="nav-hamburger" id="hamburger">
+            <span></span><span></span><span></span>
         </div>
-    </nav>
+    </div>
+</nav>
 
     <!-- HERO -->
     <section class="about-hero">
@@ -622,17 +627,30 @@
     </section>
 
     <!-- FOOTER -->
-    <footer class="footer">
-        <div class="footer-inner">
+    <!-- FOOTER -->
+<footer class="footer">
+    <div class="footer-container">
+        <div class="footer-content">
             <div class="footer-logo">
-                <i class="fas fa-atom"></i> ATUM
+                <i class="fas fa-atom"></i>
+                <span>ATUM</span>
             </div>
-            <p class="footer-text">Drug Toxicity Intelligence Platform — IIT BHU Hackathon 2024</p>
+            <p class="footer-text">Drug Toxicity Prediction &mdash; Hackathon Project 2026</p>
+            <div class="footer-tech">
+                <span>Flask</span>
+                <span>XGBoost</span>
+                <span>RDKit</span>
+                <span>Tox21</span>
+                <span>Three.js</span>
+                <span>Chart.js</span>
+                <span>jsPDF</span>
+            </div>
         </div>
         <div class="footer-bottom">
-            &copy; 2024 Team ATUM. Built with rigour, science, and a lot of caffeine.
+            <p>&copy; 2026 Team ATUM. All rights reserved.</p>
         </div>
-    </footer>
+    </div>
+</footer>
 
     <script>
         // Cursor

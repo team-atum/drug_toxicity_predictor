@@ -57,9 +57,12 @@ window.addEventListener('scroll', () => {
 
     let current = '';
     sections.forEach(section => {
-        const sectionTop = section.offsetTop - 200;
-        if (window.scrollY >= sectionTop) {
-            current = section.getAttribute('id');
+        // Fix: Only track sections that are currently visible
+        if (section.offsetHeight > 0) { 
+            const sectionTop = section.offsetTop - 200;
+            if (window.scrollY >= sectionTop) {
+                current = section.getAttribute('id');
+            }
         }
     });
 
@@ -84,34 +87,77 @@ navLinkElements.forEach(link => {
 // ==================== HERO PARTICLES ====================
 function createParticles() {
     const container = document.getElementById('heroBgParticles');
-    const count = 60;
-    for (let i = 0; i < count; i++) {
-        const particle = document.createElement('div');
-        const size = Math.random() * 3 + 1;
-        particle.style.cssText = `
-            position: absolute;
-            width: ${size}px;
-            height: ${size}px;
-            background: rgba(201, 168, 76, ${Math.random() * 0.3 + 0.05});
-            border-radius: 50%;
-            left: ${Math.random() * 100}%;
-            top: ${Math.random() * 100}%;
-            animation: particleFloat ${Math.random() * 20 + 10}s linear infinite;
-            animation-delay: ${Math.random() * -20}s;
-        `;
-        container.appendChild(particle);
-    }
 
     const style = document.createElement('style');
     style.textContent = `
         @keyframes particleFloat {
-            0% { transform: translateY(0) translateX(0); opacity: 0; }
-            10% { opacity: 1; }
-            90% { opacity: 1; }
-            100% { transform: translateY(-100vh) translateX(${Math.random() * 200 - 100}px); opacity: 0; }
+            0%   { transform: translateY(0) translateX(0); opacity: 0; }
+            8%   { opacity: 1; }
+            88%  { opacity: 0.8; }
+            100% { transform: translateY(-100vh) translateX(var(--pdx)); opacity: 0; }
+        }
+        @keyframes formulaFloat {
+            0%   { transform: translateY(0) translateX(0); opacity: 0; }
+            10%  { opacity: 1; }
+            85%  { opacity: 0.6; }
+            100% { transform: translateY(-90vh) translateX(var(--fdx)); opacity: 0; }
         }
     `;
     document.head.appendChild(style);
+
+    /* — dot particles — */
+    for (let i = 0; i < 55; i++) {
+        const p = document.createElement('div');
+        const size  = (Math.random() * 2.4 + 0.8).toFixed(1);
+        const alpha = (Math.random() * 0.28 + 0.06).toFixed(2);
+        const dur   = (Math.random() * 22 + 12).toFixed(1);
+        const delay = (Math.random() * -28).toFixed(1);
+        const dx    = (Math.random() * 180 - 90).toFixed(0);
+        p.style.cssText = `
+            position:absolute;
+            width:${size}px; height:${size}px;
+            background:rgba(126,207,58,${alpha});
+            border-radius:50%;
+            left:${(Math.random()*100).toFixed(1)}%;
+            top:${(Math.random()*100).toFixed(1)}%;
+            --pdx:${dx}px;
+            animation:particleFloat ${dur}s linear infinite ${delay}s;
+            pointer-events:none;
+        `;
+        container.appendChild(p);
+    }
+
+    /* — chemistry formula fragments — */
+    const formulas = [
+        'CH₃','NH₂','C₆H₅','OH','COOH','C=O',
+        'NO₂','CH₂','NaCl','C₂H₅','HCl','H₂O',
+        'SO₄','CO₂','N≡N','C≡C','Br','Cl'
+    ];
+    for (let i = 0; i < 18; i++) {
+        const f   = document.createElement('div');
+        const dur   = (Math.random() * 28 + 16).toFixed(1);
+        const delay = (Math.random() * -35).toFixed(1);
+        const dx    = (Math.random() * 120 - 60).toFixed(0);
+        const size  = (Math.random() * 7 + 9).toFixed(1);
+        const alpha = (Math.random() * 0.13 + 0.05).toFixed(2);
+        f.textContent = formulas[Math.floor(Math.random() * formulas.length)];
+        f.style.cssText = `
+            position:absolute;
+            font-family:'JetBrains Mono',monospace;
+            font-size:${size}px;
+            font-weight:500;
+            color:rgba(154,223,90,${alpha});
+            left:${(Math.random()*94).toFixed(1)}%;
+            top:${(Math.random()*100).toFixed(1)}%;
+            letter-spacing:1px;
+            --fdx:${dx}px;
+            animation:formulaFloat ${dur}s linear infinite ${delay}s;
+            pointer-events:none;
+            user-select:none;
+            white-space:nowrap;
+        `;
+        container.appendChild(f);
+    }
 }
 createParticles();
 
@@ -201,19 +247,19 @@ function initMolecule() {
     });
 
     const ring1Geo = new THREE.RingGeometry(2.8, 2.85, 64);
-    const ring1Mat = new THREE.MeshBasicMaterial({ color: 0xc9a84c, transparent: true, opacity: 0.15, side: THREE.DoubleSide });
+    const ring1Mat = new THREE.MeshBasicMaterial({ color: 0x5aaa28, transparent: true, opacity: 0.18, side: THREE.DoubleSide });
     const ring1 = new THREE.Mesh(ring1Geo, ring1Mat);
     moleculeGroup.add(ring1);
 
     const ring2Geo = new THREE.RingGeometry(3.2, 3.25, 64);
-    const ring2Mat = new THREE.MeshBasicMaterial({ color: 0xe8720c, transparent: true, opacity: 0.1, side: THREE.DoubleSide });
+    const ring2Mat = new THREE.MeshBasicMaterial({ color: 0x4d9922, transparent: true, opacity: 0.12, side: THREE.DoubleSide });
     const ring2 = new THREE.Mesh(ring2Geo, ring2Mat);
     ring2.rotation.x = Math.PI / 3;
     ring2.rotation.y = Math.PI / 6;
     moleculeGroup.add(ring2);
 
     const ring3Geo = new THREE.RingGeometry(3.5, 3.55, 64);
-    const ring3Mat = new THREE.MeshBasicMaterial({ color: 0xc9a84c, transparent: true, opacity: 0.07, side: THREE.DoubleSide });
+    const ring3Mat = new THREE.MeshBasicMaterial({ color: 0x5aaa28, transparent: true, opacity: 0.08, side: THREE.DoubleSide });
     const ring3 = new THREE.Mesh(ring3Geo, ring3Mat);
     ring3.rotation.x = -Math.PI / 4;
     ring3.rotation.z = Math.PI / 5;
@@ -221,13 +267,13 @@ function initMolecule() {
 
     const ambientLight = new THREE.AmbientLight(0x404040, 0.8);
     scene.add(ambientLight);
-    const pointLight1 = new THREE.PointLight(0xc9a84c, 1.5, 20);
+    const pointLight1 = new THREE.PointLight(0x6bbf30, 1.2, 20);
     pointLight1.position.set(5, 5, 5);
     scene.add(pointLight1);
-    const pointLight2 = new THREE.PointLight(0xe8720c, 1, 20);
+    const pointLight2 = new THREE.PointLight(0x5aaa28, 0.8, 20);
     pointLight2.position.set(-5, -3, 3);
     scene.add(pointLight2);
-    const pointLight3 = new THREE.PointLight(0x3b82f6, 0.6, 20);
+    const pointLight3 = new THREE.PointLight(0x7ecf3a, 0.5, 20);
     pointLight3.position.set(0, 5, -5);
     scene.add(pointLight3);
 
