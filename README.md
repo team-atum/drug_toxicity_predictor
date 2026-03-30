@@ -1,34 +1,49 @@
+```markdown
 # 🧪 ATUM — Drug Toxicity Predictor
 
 > An AI-powered drug toxicity prediction system built for **CodeCure AI Hackathon**.
+> *"Bringing the lab into the computer to solve billion-dollar disasters."*
 
 ---
 
 ## 📖 Overview
 
-Drug development has a staggering failure rate — over 30% of drug candidates are abandoned due to **unexpected toxicity** discovered late in development. Early-stage toxicity screening is expensive, slow, and often inaccessible.
+Drug development has a staggering failure rate — over 30% of drug candidates are abandoned due to **unexpected toxicity** discovered late in development. Early-stage toxicity screening is expensive, slow, and often inaccessible. 
 
-**ATUM** addresses this by providing instant, ML-powered toxicity predictions from a compound's SMILES string, enabling researchers to flag dangerous candidates before costly lab testing begins.
+Bringing a new drug to market costs an average of $2.6 billion, and a single failed candidate represents 10–15 years of wasted research. **ATUM** addresses this by providing instant, ML-powered toxicity predictions from a compound's SMILES string, pushing toxicity detection to the very beginning of the pipeline to flag dangerous candidates before costly lab testing begins.
 
 ---
 
 ## 🏆 Team ATUM
 
 Built by a team of 4 for the **CodeCure AI Hackathon**.
+*(Team Members: Trisha Singh, Uttam Kumar, Ruchi Kumari, and Manjeet Kumar)*
 
 ---
 
 ## ✨ Features
 
-- 🤖 **Real ML Model** — XGBoost trained on NIH Tox21 (~12,000 compounds, 12 assays)
-- 🧬 **12 Tox21 Assay Coverage** — Comprehensive biological toxicity profiling
-- 🫀 **Organ-Specific Toxicity** — Liver, Kidney, Heart, Brain, and Hormonal impact
-- 📊 **Feature Importance Visualization** — Understand *why* a compound is flagged
-- 💊 **Dosage Context & Safety Profile** — Contextual risk assessment per compound
-- ⚠️ **Physical State Toxicity Warnings** — Flags based on compound physical properties
-- 📁 **Bulk CSV Prediction** — Screen multiple compounds in one upload
-- 📄 **PDF Report Download** — Exportable toxicity reports for documentation
-- 🔄 **Alternative Compound Suggestions** — Recommends safer structural analogues
+- 🤖 **Real ML Model** — XGBoost trained on NIH Tox21 (~12,000 compounds, 12 assays), fiercely penalizing false negatives using `scale_pos_weight`.
+- 🧬 **12 Tox21 Assay Coverage** — Comprehensive biological toxicity profiling (nuclear receptors + stress response pathways).
+- 🫀 **Organ-Specific Toxicity** — Assays map to Liver, Kidney, Heart, Brain, and Hormonal impact with clinical severity scoring.
+- 📊 **Feature Importance Visualization** — Integrated SHAP (TreeExplainer) to provide mathematical proof of *why* a compound is flagged.
+- 🧊 **Real 3D Molecular Visualisation** — Generates actual energy-minimised 3D coordinates using MMFF force-field optimisation (via RDKit & 3Dmol.js).
+- 💊 **Dosage Context & Safety Profile** — Contextual risk assessment per compound based on Lipinski parameters.
+- ⚠️ **Physical State Toxicity Warnings** — Flags based on compound physical properties and excretion pathways.
+- 📁 **Bulk CSV Prediction** — Screen multiple compounds in one upload (up to 100 compounds simultaneously).
+- 📄 **PDF Report Download** — Exportable toxicity reports for documentation, cross-referenced with PubChem.
+- 🔄 **Alternative Compound Suggestions** — Recommends safer structural analogues.
+- 🛡️ **Extreme Defensive Programming** — Handles invalid inputs gracefully without crashing during live evaluation.
+
+---
+
+## 💻 Live Demo Guide
+
+When evaluating ATUM, try these pre-rehearsed test molecules to see the system's full range:
+
+1. **The Safe Compound:** Input `CCO` (Ethanol) to see a low-risk profile and baseline feature influences.
+2. **The Toxic Hit:** Input `O=C(O)CCC(=O)c1ccc(-c2ccccc2)cc1` to see the SHAP explanation charts trigger and highlight dangerous molecular substructures.
+3. **The Invalid Edge Case:** Input `INVALID_CHEMICAL_xyz123` to test our error handling. The app will catch the structural error instantly without crashing the interface.
 
 ---
 
@@ -36,23 +51,23 @@ Built by a team of 4 for the **CodeCure AI Hackathon**.
 
 | Layer | Technology |
 |---|---|
-| ML Model | XGBoost + Scikit-learn |
-| Cheminformatics | RDKit (Morgan Fingerprints + Molecular Descriptors) |
+| ML Model | XGBoost + Scikit-learn + SHAP |
+| Cheminformatics | RDKit (Morgan Fingerprints + Molecular Descriptors), PubChem API |
 | Dataset | NIH Tox21 (~12,000 compounds, 12 assays) |
 | Backend | Python + Flask REST API |
 | Frontend | HTML5, CSS3, JavaScript |
-| Visualization | Three.js, Chart.js |
+| Visualization | Three.js, 3Dmol.js, Chart.js, jsPDF |
 
 ---
 
 ## ⚙️ Technical Workflow
 
-```
+```text
 User Input (SMILES String)
         ↓
 RDKit Processing
-  - 2048-bit Morgan Fingerprints
-  - 7 Molecular Descriptors
+  - 2048-bit Morgan Fingerprints (ECFP4)
+  - 7 Molecular Descriptors (MolWt, LogP, TPSA, etc.)
   - Total: 2055 features
         ↓
 XGBoost Model (pre-trained on Tox21)
@@ -62,7 +77,7 @@ Toxicity Predictions across 12 assays
 Organ-level Risk Mapping
   (Liver / Kidney / Heart / Brain / Hormones)
         ↓
-Output: Safety Profile + Feature Importance + PDF Report
+Output: Safety Profile + Feature Importance (SHAP) + PDF Report
 ```
 
 ---
@@ -89,7 +104,7 @@ Output: Safety Profile + Feature Importance + PDF Report
 
 ```bash
 # Clone the repository
-git clone https://github.com/team-atum/drug_toxicity_predictor.git
+git clone [https://github.com/team-atum/drug_toxicity_predictor.git](https://github.com/team-atum/drug_toxicity_predictor.git)
 
 # Navigate to backend
 cd drug_toxicity_predictor/backend
@@ -107,7 +122,7 @@ Then open your browser at **http://localhost:5000**
 
 ## 🗂 Project Structure
 
-```
+```text
 drug_toxicity_predictor/
 ├── backend/
 │   ├── app.py              # Flask REST API
@@ -133,3 +148,4 @@ Trained on the **NIH Tox21 dataset**:
 ---
 
 *Built with ❤️ for CodeCure AI Hackathon*
+```
