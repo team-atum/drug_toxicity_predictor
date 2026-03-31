@@ -1472,7 +1472,6 @@ function generateBulkPDFReport() {
     y += 36;
 
     // ── RESULTS TABLE ────────────────────────────────────────
-    // ── RESULTS TABLE ────────────────────────────────────────
     sectionTitle('Compound Results');
 
     // Table header
@@ -1724,7 +1723,7 @@ function generateBulkPDFReport() {
     doc.text('ATUM — Drug Toxicity Prediction', pageWidth / 2, y + 7, { align: 'center' });
     doc.setFontSize(6.5);
     doc.setFont('helvetica', 'normal');
-    doc.text('Powered by XGBoost, RDKit & Tox21 Dataset | Hackathon 2024', pageWidth / 2, y + 12, { align: 'center' });
+    doc.text('Powered by XGBoost, RDKit & Tox21 Dataset | CodeCure AI Hackathon 2026', pageWidth / 2, y + 12, { align: 'center' });
 
     doc.save(`ATUM_Bulk_Report_${bulkResultsData.length}_compounds.pdf`);
 }
@@ -2147,7 +2146,7 @@ async function generatePDFReport() {
     doc.text('ATUM - Drug Toxicity Prediction', pageWidth / 2, y + 8, { align: 'center' });
     doc.setFontSize(7);
     doc.setFont('helvetica', 'normal');
-    doc.text('Powered by XGBoost, RDKit & Tox21 Dataset | Hackathon 2024', pageWidth / 2, y + 14, { align: 'center' });
+    doc.text('Powered by XGBoost, RDKit & Tox21 Dataset | CodeCure AI Hackathon 2026', pageWidth / 2, y + 14, { align: 'center' });
 
     const compoundName = (lastPubchemData && lastPubchemData.compound_name) ? lastPubchemData.compound_name : 'compound';
     const safeName = compoundName.replace(/[^a-zA-Z0-9]/g, '_').substring(0, 30);
